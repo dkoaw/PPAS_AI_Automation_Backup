@@ -1,3 +1,8 @@
+---
+name: lgt_render_bat_generator
+description: 用于在灯光合成环节一键生成本地分层渲染的 .bat 批处理脚本。
+---
+
 # 🛠️ lgt_render_bat_generator (分层渲染批处理生成技能)
 
 ## 技能描述

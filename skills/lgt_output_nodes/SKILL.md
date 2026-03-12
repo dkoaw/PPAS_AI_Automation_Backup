@@ -1,3 +1,8 @@
+---
+name: lgt_output_nodes
+description: 用于在灯光合成环节一键配置合成器（Compositor）输出节点。
+---
+
 # 🛠️ lgt_output_nodes (输出节点自动对齐技能)
 
 ## 技能描述

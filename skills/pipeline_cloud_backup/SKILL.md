@@ -1,3 +1,8 @@
+---
+name: pipeline_cloud_backup
+description: 用于将本地全量管线资产、模块化技能、以及 AI 的核心记忆快照一键同步至 GitHub 仓库。
+---
+
 # ☁️ pipeline_cloud_backup (管线云端备份技能)
 
 ## 技能描述

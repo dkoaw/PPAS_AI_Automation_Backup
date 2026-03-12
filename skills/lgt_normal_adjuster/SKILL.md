@@ -1,3 +1,8 @@
+---
+name: lgt_normal_adjuster
+description: 用于在灯光合成环节批量调整场景中所有材质的法线（Normal Map）和凹凸（Bump）强度。
+---
+
 # 🛠️ lgt_normal_adjuster (法线强度批量调整技能)
 
 ## 技能描述

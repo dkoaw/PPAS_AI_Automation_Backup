@@ -1,3 +1,8 @@
+---
+name: lgt_subdivision_editor
+description: 用于在灯光合成环节批量调整选中物体的表面细分（Subdivision Surface）修改器参数。
+---
+
 # 🛠️ lgt_subdivision_editor (细分批量编辑技能)
 
 ## 技能描述

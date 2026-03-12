@@ -1,3 +1,8 @@
+---
+name: lgt_world_layer_settings
+description: 由于 Blender 的 World Shader 是全局的，不同渲染层默认共享同一套 HDR 参数。
+---
+
 # 🛠️ lgt_world_layer_settings (环境光分层设置技能)
 
 ## 技能描述

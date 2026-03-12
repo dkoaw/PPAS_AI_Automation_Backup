@@ -1,3 +1,8 @@
+---
+name: lgt_object_show
+description: 用于在灯光环节，强制将当前活跃物体从渲染层的“隐藏黑名单”中移除，并立即刷新其显示状态。
+---
+
 # 🛠️ lgt_object_show (物体分层强制显示技能)
 
 ## 技能描述

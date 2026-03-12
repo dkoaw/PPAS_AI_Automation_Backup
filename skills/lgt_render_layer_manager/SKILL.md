@@ -1,3 +1,8 @@
+---
+name: lgt_render_layer_manager
+description: 基于原版 PPAS SG 插件剥离的独立 Qt UI 面板。
+---
+
 # 🛠️ lgt_render_layer_manager (灯光渲染层管理窗口技能)
 
 ## 技能描述

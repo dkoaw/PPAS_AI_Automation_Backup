@@ -1,3 +1,8 @@
+---
+name: lgt_emission_mute
+description: 用于在灯光环节，针对特定渲染层（View Layer）一键屏蔽全场景材质的自发光效果。
+---
+
 # 🛠️ lgt_emission_mute (自发光分层屏蔽技能)
 
 ## 技能描述
@@ -10,4 +15,4 @@
 4. **无损实时开关**：不修改材质原始数值，通过 `Emission_Mute_Mult` 节点进行逻辑截断。
 
 ## 导出 Operator
-- `ppas.mute_emission_on_layer`: 将当前渲染层加入自发光屏蔽黑名单。
+- `ppas.mute_emission_on_layer`: 将当前渲染层加入自发光屏蔽黑名单.

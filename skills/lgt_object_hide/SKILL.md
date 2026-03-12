@@ -1,3 +1,8 @@
+---
+name: lgt_object_hide
+description: 用于在灯光合成环节，针对特定渲染层（View Layer）精准控制物体的显示与隐藏。
+---
+
 # 🛠️ lgt_object_hide (物体分层隐藏技能) V6 Robust
 
 ## 技能描述

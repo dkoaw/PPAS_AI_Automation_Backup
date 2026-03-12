@@ -1,3 +1,8 @@
+---
+name: lgt_subdivision_optimizer
+description: 基于物体与相机的视觉距离，自动优化全场景物体的表面细分（Subdivision Surface）级别。
+---
+
 # 🛠️ lgt_subdivision_optimizer (细分精度自动优化技能)
 
 ## 技能描述
