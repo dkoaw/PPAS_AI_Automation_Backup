@@ -57,25 +57,58 @@ def setup_world_hdr_nodes(scene):
 
 def setup_cycles_settings(scene):
     c = scene.cycles
+    
+    # 1. 核心采样
     try:
-        c.device = 'GPU'; c.use_adaptive_sampling = True; c.adaptive_threshold = 0.01; c.samples = 256
-        c.preview_adaptive_threshold = 0.1; c.preview_samples = 128
-        c.sampling_pattern = 'BLUE_NOISE'; c.seed = 0
-        c.max_bounces = 38; c.diffuse_bounces = 2; c.glossy_bounces = 2
-        c.transmission_bounces = 20; c.volume_bounces = 0; c.transparent_max_bounces = 32
-        c.sample_clamp_direct = 0.0; c.sample_clamp_indirect = 10.0
-        c.blur_glossy = 0.0; c.caustics_reflective = False; c.caustics_refractive = False
+        c.device = 'GPU'
+        c.use_adaptive_sampling = True
+        c.adaptive_threshold = 0.01
+        c.samples = 256
+        c.adaptive_min_samples = 0
+        c.preview_adaptive_threshold = 0.1
+        c.preview_samples = 128
+        c.sampling_pattern = 'BLUE_NOISE'
+        c.seed = 0
+    except Exception as e: print(f"Cycles Sampling Error: {e}")
+        
+    # 2. 光路反弹与钳制
+    try:
+        c.max_bounces = 38
+        c.diffuse_bounces = 2
+        c.glossy_bounces = 2
+        c.transmission_bounces = 20
+        c.volume_bounces = 0
+        c.transparent_max_bounces = 32
+        c.sample_clamp_direct = 0.0
+        c.sample_clamp_indirect = 10.0
+        c.blur_glossy = 0.0
+        c.caustics_reflective = False
+        c.caustics_refractive = False
+    except Exception as e: print(f"Cycles Light Paths Error: {e}")
+        
+    # 3. Fast GI
+    try:
         c.use_fast_gi = False
+    except Exception as e: print(f"Cycles Fast GI Error: {e}")
         
-        # --- 降噪设置修正 (Denoising) ---
-        c.use_preview_denoising = True   # 开启视口降噪 (应用户要求修正)
+    # 4. 降噪细节 (Denoising)
+    try:
+        # Viewport Denoise
+        c.use_preview_denoising = True
+        if hasattr(c, "preview_denoiser"): c.preview_denoiser = 'AUTOMATIC'
+        if hasattr(c, "preview_denoising_input_passes"): c.preview_denoising_input_passes = 'RGB'
+        if hasattr(c, "preview_denoising_prefilter"): c.preview_denoising_prefilter = 'FAST'
+        if hasattr(c, "preview_denoising_quality"): c.preview_denoising_quality = 'BALANCED'
+        if hasattr(c, "preview_denoising_use_gpu"): c.preview_denoising_use_gpu = True
         
-        c.use_denoising = True           # 开启渲染降噪
-        if hasattr(c, "denoiser"):
-            c.denoiser = 'OPENIMAGEDENOISE'
-        if hasattr(c, "denoising_use_gpu"):
-            c.denoising_use_gpu = True   # 开启 GPU 加速
-    except: pass
+        # Render Denoise
+        c.use_denoising = True
+        if hasattr(c, "denoiser"): c.denoiser = 'OPENIMAGEDENOISE'
+        if hasattr(c, "denoising_input_passes"): c.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        if hasattr(c, "denoising_prefilter"): c.denoising_prefilter = 'ACCURATE'
+        if hasattr(c, "denoising_quality"): c.denoising_quality = 'HIGH'
+        if hasattr(c, "denoising_use_gpu"): c.denoising_use_gpu = True
+    except Exception as e: print(f"Cycles Denoise Error: {e}")
 
 def setup_eevee_settings(scene):
     e = scene.eevee; r = scene.render
@@ -87,13 +120,13 @@ def setup_eevee_settings(scene):
         e.taa_render_samples = 128
     except Exception as ex: print(f"EEVEE TAA Error: {ex}")
     
-    # 2. Shadows
+    # 2. Shadows (截图精确校对版)
     try:
         e.use_shadow_jitter_viewport = True
         e.use_shadows = True
-        e.shadow_ray_count = 2
-        e.shadow_step_count = 10
-        e.shadow_resolution_scale = 1.0  # 核心修复：必须是 Float
+        e.shadow_ray_count = 1           # 截图为 1
+        e.shadow_step_count = 6          # 截图为 6
+        e.shadow_resolution_scale = 1.0  
         e.light_threshold = 0.01
     except Exception as ex: print(f"EEVEE Shadow Error: {ex}")
 

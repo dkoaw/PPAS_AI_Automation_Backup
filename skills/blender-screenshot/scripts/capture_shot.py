@@ -64,10 +64,21 @@ def capture_outliner(target_area):
                 pass
 
         try:
-            with bpy.context.temp_override(window=bpy.context.window_manager.windows[0], area=target_area):
-                bpy.ops.outliner.show_hierarchy()
-        except:
-            pass
+            target_region = None
+            for region in target_area.regions:
+                if region.type == 'WINDOW':
+                    target_region = region
+                    break
+                    
+            with bpy.context.temp_override(window=bpy.context.window_manager.windows[0], area=target_area, region=target_region):
+                # 暴力折叠所有层级 (执行多次以确保深层节点也被折叠)
+                for _ in range(10):
+                    bpy.ops.outliner.show_one_level(open=False)
+                # 展开 2 级大纲
+                for _ in range(2):
+                    bpy.ops.outliner.show_one_level(open=True)
+        except Exception as e:
+            print(f"Hierarchy control failed: {e}")
             
         with bpy.context.temp_override(window=bpy.context.window_manager.windows[0], area=target_area):
             bpy.ops.screen.screen_full_area()
@@ -77,6 +88,18 @@ def capture_outliner(target_area):
         temp_img = os.path.join(out_dir, f"temp_outliner_{timestamp}.png")
         bpy.ops.screen.screenshot(filepath=temp_img)
         
+        # --- 核心：安全写入逻辑 ---
+        save_path = final_img
+        if os.path.exists(save_path):
+            try:
+                # 尝试解除只读并物理删除
+                subprocess.call(f'attrib -r "{save_path}"', shell=True)
+                os.remove(save_path)
+            except:
+                # 如果删除失败(被占用)，启用避让方案
+                print(f"[Warning] {save_path} is locked. Using fallback filename.")
+                save_path = os.path.join(out_dir, f"{asset_name}_outliner_{timestamp}.png")
+
         img = bpy.data.images.load(temp_img)
         width = img.size[0]
         height = img.size[1]
@@ -130,12 +153,12 @@ def capture_outliner(target_area):
             
         cropped_img.pixels = new_pixels
         
-        cropped_img.filepath_raw = final_img
+        cropped_img.filepath_raw = save_path
         cropped_img.file_format = 'PNG'
         cropped_img.save()
         
         os.remove(temp_img)
-        print(f"Saved Dynamic Height Outliner Screenshot: {final_img}")
+        print(f"Saved Dynamic Height Outliner Screenshot: {save_path}")
             
     except Exception as e:
         import traceback

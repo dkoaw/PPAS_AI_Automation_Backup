@@ -109,6 +109,46 @@ def force_move_to_collection(obj, target_col):
         if col != target_col:
             col.objects.unlink(obj)
 
+def fix_missing_textures(report):
+    """遍历贴图，执行 S/X 盘镜像重定向并统计丢失项"""
+    missing_list = []
+    fixed_count = 0
+    
+    # 修正后的 S 盘与 X 盘 1:1 映射关系
+    s_root = os.path.normpath(r"S:\Project\ysj")
+    x_root = os.path.normpath(r"X:\Project\ysj")
+
+    for img in bpy.data.images:
+        if img.source not in ['FILE', 'TILED'] or not img.filepath:
+            continue
+            
+        abs_path = os.path.normpath(bpy.path.abspath(img.filepath))
+        
+        if not os.path.exists(abs_path):
+            # 尝试执行镜像重定向
+            new_path = None
+            if abs_path.lower().startswith(s_root.lower()):
+                # S -> X 尝试 (Tex -> Lib)
+                tmp_path = abs_path.lower().replace(s_root.lower(), x_root.lower())
+                if os.path.exists(tmp_path): new_path = tmp_path
+            elif abs_path.lower().startswith(x_root.lower()):
+                # X -> S 尝试 (Lib -> Tex)
+                tmp_path = abs_path.lower().replace(x_root.lower(), s_root.lower())
+                if os.path.exists(tmp_path): new_path = tmp_path
+            
+            if new_path:
+                img.filepath = new_path
+                img.reload()
+                fixed_count += 1
+                report["fixed"].append(f"贴图重定向成功: {img.name} -> {new_path}")
+            else:
+                missing_list.append(f"{img.name} (丢失路径: {abs_path})")
+    
+    if missing_list:
+        report["missing_textures"] = missing_list
+    if fixed_count > 0:
+        report["fixed"].append(f"成功自动找回并修复了 {fixed_count} 张丢失贴图")
+
 def run_fixer(blend_file_path):
     filename = os.path.basename(blend_file_path)
     asset_name = extract_asset_name(filename)
@@ -116,8 +156,12 @@ def run_fixer(blend_file_path):
     report = {
         "asset_name": asset_name,
         "fixed": [],
-        "manual_fix_needed": []
+        "manual_fix_needed": [],
+        "missing_textures": [] # 初始化丢失列表
     }
+    
+    # 执行贴图自动修复
+    fix_missing_textures(report)
     
     scripts_to_remove = [t for t in bpy.data.texts if not t.users]
     if scripts_to_remove:
