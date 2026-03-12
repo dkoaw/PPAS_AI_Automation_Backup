@@ -20,7 +20,6 @@ SPREADSHEET_MGR = os.path.join(SKILLS_DIR, "asset-spreadsheet-manager", "scripts
 SCREENSHOT_SCRIPT = os.path.join(SKILLS_DIR, "blender-screenshot", "scripts", "capture_shot.py")
 COMPARATOR = os.path.join(SKILLS_DIR, "blender-asset-info-comparator", "scripts", "compare_asset_data.py")
 
-# ----------------- 状态记录对象 -----------------
 class AssetResult:
     def __init__(self, asset_data):
         self.name = asset_data[u'资产名称']
@@ -73,40 +72,44 @@ def execute_pipeline(project_name, target_asset=None):
         res = AssetResult(asset_data)
         results.append(res)
         try:
-            run_step_1_logic(res, project_name, asset_data)
-            run_lib_rig_logic(res, project_name, asset_data)
-            run_step_2_logic(res, project_name, asset_data)
+            # --- 严格执行 Excel 规则判定 ---
+            # 1. 检查 QC_step_1 条件
+            if res.tex_status in ['pub', 'tmpub'] and res.qc1_existing != res.tex_status:
+                run_step_1_logic(res, project_name, asset_data)
+            else:
+                res.step1_msg = u"不符合QC1执行条件 (状态未变或未发布)"
+            
+            # 2. 检查 libRig 条件
+            if ((res.step1_res == "PASS") or (res.qc1_existing == res.tex_status)) and \
+               (res.rig_status in ['pub', 'tmpub']) and (res.librig_existing != res.rig_status):
+                run_lib_rig_logic(res, project_name, asset_data)
+                
         except Exception as e:
             res.errors.append(unicode(str(e)))
     finalize_all(project_name, results)
 
 def run_step_1_logic(res, project_name, asset_data):
-    if res.tex_status not in ['pub', 'tmpub'] or res.lib_master_status == res.tex_status: return
-    log(u"[{}] QC_step_1...".format(res.name))
-    
+    log(u"[{}] Starting QC_step_1...".format(res.name))
     src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"tex\texMaster")
     latest = get_latest_file(src_dir, "ysj_{}_{}_tex_texMaster_v*.blend".format(res.type, res.name))
     if not latest: res.step1_res = "FAIL"; res.step1_msg = u"找不到源文件"; return
     
     s1_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1")
     if not os.path.exists(s1_dir): os.makedirs(s1_dir)
-    
     dest_path = os.path.join(s1_dir, u"{}_{}_{}_lib_libMaster.blend".format(project_name, res.type, res.name))
     shutil.copy2(latest, dest_path)
     
-    # 1. Fix
+    # 执行洗稿 (Fixer V11)
     env = {str(k): str(v) for k, v in os.environ.items()}
     subprocess.call([BLENDER_PATH, "-b", dest_path, "-P", FIXER_SCRIPT], env=env)
     fixed_path = dest_path.replace(".blend", "_fixed.blend")
     
-    # 2. Screenshot
+    # 截图
     log(u"[{}] Capturing Screenshot...".format(res.name))
     env["BLENDER_SHOT_OUT"] = str(s1_dir); env["BLENDER_ASSET_NAME"] = str(res.name)
     subprocess.call([BLENDER_PATH, fixed_path, "--python", SCREENSHOT_SCRIPT], env=env)
-    img_path = os.path.join(s1_dir, u"{}_outliner.png".format(res.name))
-    if os.path.exists(img_path): res.screenshot_path = img_path
     
-    # 3. QC
+    # 质检
     qc_out = os.path.join(s1_dir, "qc_out.json")
     env["QC_STEP_NAME"] = "tex"; env["QC_OUT_PATH"] = str(qc_out)
     subprocess.call([BLENDER_PATH, "-b", fixed_path, "-P", QC_SCRIPT], env=env)
@@ -125,9 +128,7 @@ def run_step_1_logic(res, project_name, asset_data):
     except: res.step1_res = "FAIL"
 
 def run_lib_rig_logic(res, project_name, asset_data):
-    if not ((res.step1_res == "PASS") or (res.qc1_existing == res.tex_status)): return
-    if res.rig_status not in ['pub', 'tmpub'] or res.librig_existing == res.rig_status: return
-    log(u"[{}] lib-rig...".format(res.name))
+    log(u"[{}] Starting lib-rig...".format(res.name))
     rig_inf = get_latest_file(os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"rig\rigMaster\.info"), "ysj_*.json")
     lib_inf = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1", u"{}_{}_{}_lib_libMaster_fixed.json".format(project_name, res.type, res.name))
     if not (rig_inf and os.path.exists(lib_inf)): res.rig_res = "FAIL"; return
@@ -148,7 +149,7 @@ def finalize_all(project_name, results):
     active_results = [r for r in results if r.step1_res != "SKIP" or r.rig_res != "SKIP"]
     
     if not active_results:
-        rpt.append(u"### ℹ️ 本次无资产符合条件")
+        rpt.append(u"### ℹ️ 本次无资产符合入库流转条件 (全部跳过)。")
     else:
         for res in active_results:
             b = [u"## 📦 资产: `{}`".format(res.name)]
@@ -167,10 +168,6 @@ def finalize_all(project_name, results):
                 ups.append((res.name, u"libRig", u"rtk"))
                 b.append(u"### 💍 Rig 比对: ⚠️ 不一致 (已导出 ABC)")
             
-            if res.screenshot_path:
-                uri = u"file:///" + res.screenshot_path.replace("\\", "/")
-                b.append(u"\n### 📸 大纲预览\n")
-                b.append(u'<img src="{}" width="450">'.format(uri))
             rpt.append(u"\n".join(b) + u"\n---")
         
     apply_batch(project_name, ups)
@@ -202,6 +199,6 @@ wb.save(fp); subprocess.call('attrib +r "{}"'.format(fp.encode('gbk')), shell=Tr
     subprocess.call(["python", bs, project_name.encode('utf-8'), pl.encode('utf-8')])
 
 if __name__ == "__main__":
-    p = sys.argv[1] if len(sys.argv) > 1 else "ysj"
-    t = sys.argv[2] if len(sys.argv) > 2 else None
-    execute_pipeline(p, t)
+    proj = sys.argv[1] if len(sys.argv) > 1 else "ysj"
+    tgt = sys.argv[2] if len(sys.argv) > 2 else None
+    execute_pipeline(proj, tgt)
