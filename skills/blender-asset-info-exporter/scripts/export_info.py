@@ -42,7 +42,7 @@ def extract_mesh_info():
                 # 提示：v.co 是局部空间坐标。根据样例，通常拓扑对比使用的是局部空间数据。
                 verts = []
                 for v in mesh_data.vertices:
-                    verts.extend([round(v.co.x, 6), round(v.co.y, 6), round(v.co.z, 6)])
+                    verts.extend([round(v.co.x * 100.0, 6), round(v.co.z * 100.0, 6), round(-v.co.y * 100.0, 6)])
                 
                 report[dag_path] = {
                     "vertices": len(mesh_data.vertices),

@@ -4,36 +4,40 @@ import json
 import os
 import sys
 import importlib.util
+import re
 
 # ----------------- 核心配置 -----------------
 SKILLS_DIR = r"X:\AI_Automation\.gemini\skills"
 QC_ROOT = os.path.join(SKILLS_DIR, "blender-character-qc", "scripts")
 CHECKS_DIR = os.path.join(QC_ROOT, "checks")
+PROFILE_JSON = os.path.join(QC_ROOT, "qc_profiles.json")
 
-# 环节对应的质检项原子清单
-QC_PROFILES = {
-    "tex": [
-        "cameras", "lights", "unused_images", "unused_materials", "unused_meshes",
-        "extra_scripts", "empty_groups", "ngons", "transform_reset", "illegal_nodes",
-        "subdivision", "uv_negative", "uv_cross_udim", "uv_overlap", "uv_inverted",
-        "uv_layer_naming", "uv_layer_count", "asset_prefix", "mesh_parent_logic",
-        "data_sync", "hierarchy_nesting", "group_validity", "facial_nodes",
-        "texture_consistency"
-    ],
-    "lib": [
-        "cameras", "lights", "unused_images", "unused_materials", "unused_meshes",
-        "extra_scripts", "empty_groups", "ngons", "transform_reset", "illegal_nodes",
-        "subdivision", "uv_negative", "uv_layer_naming", "asset_prefix",
-        "data_sync", "hierarchy_nesting", "group_validity", "rig_fingerprint"
-    ]
-}
+def load_qc_profiles():
+    """动态读取外部 JSON 配置档"""
+    try:
+        with open(PROFILE_JSON, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print("[QC Orchestrator] Warning: Cannot load qc_profiles.json - " + str(e))
+        return {}
 
 def extract_asset_name(filename):
+    """Smart Asset Name Extraction (Mirroring Fixer V2.1)"""
     name = os.path.splitext(filename)[0]
     parts = name.split('_')
-    if 'chr' in parts:
-        idx = parts.index('chr')
-        if idx + 1 < len(parts): return parts[idx + 1]
+    
+    # 1. Standard tags: chr, prp, env
+    for tag in ['chr', 'prp', 'env']:
+        if tag in parts:
+            idx = parts.index(tag)
+            if idx + 1 < len(parts): return parts[idx + 1]
+            
+    # 2. Known project prefixes to skip
+    PROJECTS = ['ysj', 'ssx']
+    if parts[0].lower() in PROJECTS and len(parts) > 1:
+        if parts[1].lower() in ['chr', 'prp', 'env'] and len(parts) > 2: return parts[2]
+        return parts[1]
+        
     return parts[0]
 
 def run_check_atom(atom_name, asset_name, results):
@@ -50,16 +54,18 @@ def run_check_atom(atom_name, asset_name, results):
         mod.run(results, asset_name)
 
 def run_full_qc(step_name):
-    if step_name not in QC_PROFILES:
+    profiles = load_qc_profiles()
+    if step_name not in profiles:
         return [{"check": "Config Error", "status": "FAIL", "issues": [f"Invalid step: {step_name}"]}]
         
+    # Use smart extraction
     asset_name = extract_asset_name(os.path.basename(bpy.data.filepath))
     results = []
     
     print(f"--- [QC Orchestrator] Starting QC ({step_name}) for {asset_name} ---")
     
     # 按清单调度原子质检项
-    for atom in QC_PROFILES[step_name]:
+    for atom in profiles[step_name]:
         try:
             run_check_atom(atom, asset_name, results)
             print(f"  [OK] Checked: {atom}")

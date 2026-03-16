@@ -64,7 +64,8 @@ def compare_json_data(file_a, file_b):
             is_pos_match = False
         else:
             for i in range(len(pos_a)):
-                if abs(pos_a[i] - pos_b[i]) > 0.0001:
+                # 放宽容差至 0.005，吸收跨 DCC 软件浮点精度带来的微小误差
+                if abs(pos_a[i] - pos_b[i]) > 0.005:
                     is_pos_match = False
                     break
         

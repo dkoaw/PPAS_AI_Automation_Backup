@@ -74,7 +74,7 @@ def manage_table(project_name):
         sg_map[asset_name][task_name] = status
 
     # 标准表头
-    headers = [u"资产类型", u"资产名称", u"texMaster", u"rigMaster", u"facialTex", u"lightMap", u"QC_step_1", u"灯光文件制作", u"libRig", u"QC_step_2", u"libMaster"]
+    headers = [u"资产类型", u"资产名称", u"texMaster", u"rigMaster", u"facialTex", u"lightMap", u"QC_step_1", u"灯光文件制作", u"制作人员", u"libRig", u"QC_step_2", u"libMaster"]
     
     # 定义 Flow (ShotGrid) 的标准状态下拉列表
     # 根据常规项目配置，包含：等待、就绪、进行中、完成、审核通过、发布、临时发布、暂停、遗弃、重做
@@ -145,8 +145,8 @@ def manage_table(project_name):
                 worksheet.write(excel_row, col_num, val, data_format)
                 
                 # 为任务状态列添加数据验证（下拉列表）
-                # 排除 "资产类型" 和 "资产名称" 
-                if header not in [u"资产类型", u"资产名称"]:
+                # 排除 "资产类型" 和 "资产名称" 和 "制作人员"
+                if header not in [u"资产类型", u"资产名称", u"制作人员"]:
                     worksheet.data_validation(excel_row, col_num, excel_row, col_num, {
                         'validate': 'list',
                         'source': status_list,

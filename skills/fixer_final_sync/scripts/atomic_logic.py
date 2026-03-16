@@ -23,7 +23,7 @@ def run(asset_name, report):
             if not (is_loc_0 and is_rot_0 and is_scl_1):
                 report["manual_fix_needed"].append("Transform Not Zero: " + str(obj.name))
 
-    # 3. Fur group explicit cleanup (Fixing the redundant group issue)
+    # 3. CRITICAL: Fur group explicit cleanup (Fixing the redundant group issue)
     fur_col = bpy.data.collections.get("Fur")
     if fur_col:
         for grp_name in [fur_crv_grp_name, hair_crv_grp_name]:
@@ -31,10 +31,7 @@ def run(asset_name, report):
             if grp:
                 # Force link to Fur collection only
                 if grp.name not in fur_col.objects.keys():
-                    try:
-                        fur_col.objects.link(grp)
-                    except:
-                        pass
+                    fur_col.objects.link(grp)
                 
                 # Unlink from ALL other collections
                 for col in bpy.data.collections:
@@ -45,11 +42,11 @@ def run(asset_name, report):
                 if grp.name in bpy.context.scene.collection.objects.keys():
                     bpy.context.scene.collection.objects.unlink(grp)
                 
-                # REMOVE PARENT
+                # REMOVE PARENT (Source line: if grp.parent is not None: grp.parent = None)
                 if grp.parent is not None:
                     grp.parent = None
+                    report["fixed"].append("Detached Fur container parent: " + str(grp.name))
 
-        # CLEANUP: If Fur collection is completely empty, remove it.
+        # Remove Fur collection if totally empty
         if len(fur_col.objects) == 0 and len(fur_col.children) == 0:
             bpy.data.collections.remove(fur_col)
-            # report["fixed"].append("Removed empty Fur collection")
