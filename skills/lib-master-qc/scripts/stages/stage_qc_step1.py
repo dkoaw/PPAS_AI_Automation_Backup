@@ -6,30 +6,61 @@ import json
 
 def get_latest_file(directory, pattern):
     import glob
+    import re
     search_path = os.path.join(directory, pattern)
     files = glob.glob(search_path)
     if not files: return None
-    return max(files, key=os.path.getmtime)
+    
+    def sort_key(f):
+        # Primary: Version number (_v001)
+        match = re.search(r'_v(\d+)', os.path.basename(f))
+        ver = int(match.group(1)) if match else 0
+        # Secondary: Modification time
+        mtime = os.path.getmtime(f)
+        return (ver, mtime)
+        
+    return max(files, key=sort_key)
 
 def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_script, info_exporter):
     """ASCII Version - Step 1 Process"""
-    print('[Stage: Step 1] Processing ' + str(res.name))
+    print('[Stage: Step 1] Processing ' + res.name)
     src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"tex\texMaster")
-    latest = get_latest_file(src_dir, "ysj_" + str(res.type) + "_" + str(res.name) + "_tex_texMaster_v*.blend")
+    latest = get_latest_file(src_dir, "ysj_" + res.type + "_" + res.name + "_tex_texMaster_v*.blend")
     if not latest:
         res.step1_res = "FAIL"; res.step1_msg = "Source missing"; return
 
     s1_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1")
     if not os.path.exists(s1_dir): os.makedirs(s1_dir)
-    dest_path = os.path.join(s1_dir, str(project_name) + "_" + str(res.type) + "_" + str(res.name) + "_lib_libMaster.blend")
+    dest_path = os.path.join(s1_dir, project_name + "_" + res.type + "_" + res.name + "_lib_libMaster.blend")
     shutil.copy2(latest, dest_path)
     
+    # Save Sync Metadata
+    meta_path = os.path.join(s1_dir, "sync_version.json")
+    meta = {"source_file": os.path.basename(latest), "source_mtime": os.path.getmtime(latest)}
+    with io.open(meta_path, 'w', encoding='utf-8') as f:
+        f.write(unicode(json.dumps(meta, indent=4)))
+
+    # --- [Pre-Clean] Delete stale _fixed.blend before running fixer ---
+    # Blender uses atomic writes: saves to _fixed.blend@ then renames to _fixed.blend.
+    # If _fixed.blend is read-only OR if a stale _fixed.blend@ exists, the rename fails.
+    # Solution: delete all stale variants before running fixer.
+    fixed_path = dest_path.replace(".blend", "_fixed.blend")
+    for stale in [fixed_path, fixed_path + "1", fixed_path + "@"]:
+        if os.path.exists(stale):
+            try:
+                # Force remove read-only attribute first (Windows)
+                import stat
+                os.chmod(stale, stat.S_IWRITE)
+                os.remove(stale)
+                print("[Pre-Clean] Removed: " + os.path.basename(stale))
+            except Exception as e:
+                print("[Pre-Clean] WARNING: Could not remove {}: {}".format(stale, e))
+
     env = {str(k): str(v) for k, v in os.environ.items()}
     subprocess.call([blender_path, "-b", dest_path, "-P", fixer_script], env=env)
-    fixed_path = dest_path.replace(".blend", "_fixed.blend")
     
     env['BLENDER_SHOT_OUT'] = str(s1_dir); env['BLENDER_ASSET_NAME'] = str(res.name)
-    subprocess.call([blender_path, fixed_path, "--python", screenshot_script], env=env)
+    subprocess.call([blender_path, "-b", fixed_path, "--python", screenshot_script], env=env)
     
     qc_out = os.path.join(s1_dir, "qc_out.json")
     env["QC_STEP_NAME"] = "lib_qc_step1"; env["QC_OUT_PATH"] = str(qc_out)
@@ -44,7 +75,7 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
                 base_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name)
                 s2_dir = os.path.join(base_dir, "QC_step_2")
                 if not os.path.exists(s2_dir): os.makedirs(s2_dir)
-                dest_s2 = os.path.join(s2_dir, str(project_name) + "_" + str(res.type) + "_" + str(res.name) + "_lib_libMaster.blend")
+                dest_s2 = os.path.join(s2_dir, project_name + "_" + res.type + "_" + res.name + "_lib_libMaster.blend")
                 shutil.copy2(fixed_path, dest_s2)
                 
                 # Export Fingerprint Info

@@ -5,20 +5,30 @@ import codecs
 
 def get_latest_file(directory, pattern):
     import glob
+    import re
     search_path = os.path.join(directory, pattern)
     files = glob.glob(search_path)
     if not files: return None
-    return max(files, key=os.path.getmtime)
+    
+    def sort_key(f):
+        # Primary: Version number (_v001)
+        match = re.search(r'_v(\d+)', os.path.basename(f))
+        ver = int(match.group(1)) if match else 0
+        # Secondary: Modification time
+        mtime = os.path.getmtime(f)
+        return (ver, mtime)
+        
+    return max(files, key=sort_key)
 
 def run(res, project_name, comparator_script, skills_dir, blender_path):
     """ASCII Version - libRig Fingerprint (Sync Physical File on PASS)"""
-    print('[Stage: libRig] Comparing ' + str(res.name))
+    print('[Stage: libRig] Comparing ' + res.name)
     
     rig_src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"rig\rigMaster")
     rig_inf = get_latest_file(os.path.join(rig_src_dir, ".info"), "ysj_*.json")
     
     # --- FORCE RENEW BLENDER JSON (Avoid stale algorithm data) ---
-    lib_blend = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1", str(project_name) + "_" + str(res.type) + "_" + str(res.name) + "_lib_libMaster_fixed.blend")
+    lib_blend = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1", project_name + "_" + res.type + "_" + res.name + "_lib_libMaster_fixed.blend")
     lib_inf = lib_blend.replace(".blend", ".json")
     if os.path.exists(lib_blend):
         info_exporter = os.path.join(skills_dir, "blender-asset-info-exporter", "scripts", "export_info.py")
@@ -46,8 +56,30 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
                 if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)
                 import shutil
                 ext = os.path.splitext(rig_file)[1]
-                shutil.copy2(rig_file, os.path.join(rig_dst_dir, str(project_name) + "_" + str(res.type) + "_" + str(res.name) + "_lib_libRig" + ext))
+                dest_path = os.path.join(rig_dst_dir, project_name + "_" + res.type + "_" + res.name + "_lib_libRig" + ext)
+                shutil.copy2(rig_file, dest_path)
+                
+                # Save Sync Metadata
+                import json, io
+                meta_path = os.path.join(rig_dst_dir, "sync_version.json")
+                meta = {"source_file": os.path.basename(rig_file), "source_mtime": os.path.getmtime(rig_file)}
+                with io.open(meta_path, 'w', encoding='utf-8') as mf:
+                    mf.write(unicode(json.dumps(meta, indent=4)))
         else:
             res.rig_res = "FAIL"
+            
+            # --- [KEY FIX] Write metadata even on FAIL ---
+            # This prevents read_sheet.py from repeatedly flagging as 'stale'
+            # (which would imply Rig was never processed, when it was, just failed)
+            rig_file_for_meta = get_latest_file(rig_src_dir, "ysj_*.m[ab]")
+            if rig_file_for_meta:
+                rig_dst_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "libRig")
+                if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)
+                import json, io
+                meta_path = os.path.join(rig_dst_dir, "sync_version.json")
+                meta = {"source_file": os.path.basename(rig_file_for_meta), "source_mtime": os.path.getmtime(rig_file_for_meta), "result": "FAIL"}
+                with io.open(meta_path, 'w', encoding='utf-8') as mf:
+                    mf.write(unicode(json.dumps(meta, indent=4)))
+            
             abc_exp = os.path.join(skills_dir, "blender-export-abc", "scripts", "export_abc.py")
             subprocess.call([blender_path, "-b", lib_inf.replace(".json", ".blend"), "-P", abc_exp])

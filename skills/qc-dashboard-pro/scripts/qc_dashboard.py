@@ -86,6 +86,7 @@ class QCDashboard(tk.Tk):
         tk.Radiobutton(filter_frame, text="Show All", variable=self.filter_var, value="all", command=self.apply_filter, font=("Microsoft YaHei", 9)).pack(side=tk.LEFT)
         tk.Radiobutton(filter_frame, text="Only: Ready for QC1", variable=self.filter_var, value="qc1", command=self.apply_filter, font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=10)
         tk.Radiobutton(filter_frame, text="Only: Stuck in Rig Sync", variable=self.filter_var, value="rig_wait", command=self.apply_filter, font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=10)
+        tk.Radiobutton(filter_frame, text="Only: Ready for LGT", variable=self.filter_var, value="lgt_ready", command=self.apply_filter, font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=10)
         tk.Radiobutton(filter_frame, text="Only: Ready for QC2", variable=self.filter_var, value="qc2", command=self.apply_filter, font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=10)
 
         table_frame = tk.Frame(self, padx=10, pady=10)
@@ -125,8 +126,11 @@ class QCDashboard(tk.Tk):
         self.title("Syncing data from Flow...")
         self.update()
         try:
-            subprocess.call(["python", SYNC_SCRIPT, proj])
-            subprocess.call(["python", os.path.join(TMP_DIR, "read_sheet.py"), proj])
+            ret1 = subprocess.call(["python", SYNC_SCRIPT, proj])
+            ret2 = subprocess.call(["python", os.path.join(TMP_DIR, "read_sheet.py"), proj])
+            if ret1 != 0 or ret2 != 0:
+                messagebox.showerror("Sync Error", "Subprocess failed. Please check console.")
+                return
             self.load_radar()
         except Exception as e:
             messagebox.showerror("Sync Error", str(e))
@@ -181,10 +185,13 @@ class QCDashboard(tk.Tk):
                     updates.append(u"{}|{}|{}".format(asset, col_id, val))
             payload = u";".join(updates)
             cmd = ["python", BATCH_UPDATE_SCRIPT, proj, payload.encode('utf-8')]
-            subprocess.call(cmd)
-            messagebox.showinfo("Success", "Edits successfully written and locked.")
-            self.pending_updates.clear()
-            self.sync_data()
+            ret = subprocess.call(cmd)
+            if ret == 0:
+                messagebox.showinfo("Success", "Edits successfully written and locked.")
+                self.pending_updates.clear()
+                self.sync_data()
+            else:
+                messagebox.showerror("Error", "Failed to update spreadsheet. Possibly file is locked.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -207,7 +214,8 @@ class QCDashboard(tk.Tk):
             eligible = False
             if atype in ['chr', u'chr']:
                 if t_tex in valid_states and t_qc1 == t_tex and t_qc2 == t_tex and \
-                   t_rig in valid_states and t_lrig == t_rig:
+                   t_rig in valid_states and t_lrig == t_rig and \
+                   item.get(u'\u706f\u5149\u6587\u4ef6\u5236\u4f5c', '') in valid_states:
                     eligible = True
             elif atype in ['prp', u'prp']:
                 if t_tex in valid_states and t_qc1 == t_tex and \
@@ -221,6 +229,8 @@ class QCDashboard(tk.Tk):
                 count += 1
         if count > 0:
             messagebox.showinfo("Smart Filter", "Found {} eligible assets. Set to 'apr'.".format(count))
+        else:
+            messagebox.showinfo("Smart Filter", "No new eligible assets found for Smart Auto-APR.\n(Chr assets require LGT to be published)")
 
     def apply_filter(self):
         for widget in self.scrollable_frame.winfo_children(): widget.destroy()
@@ -246,10 +256,12 @@ class QCDashboard(tk.Tk):
             t_assignee = item.get(u'\u5236\u4f5c\u4eba\u5458', '')
             t_libm = item.get('libMaster', '')
             
-            is_qc1_ready = (t_tex in valid_states and t_qc1 != t_tex)
+            is_qc1_ready = (t_tex in valid_states and (t_qc1 != t_tex or item.get('is_stale') in ['tex', 'both']))
             is_rig_wait = (t_qc1 == t_tex and t_lrig != t_rig and t_rig in valid_states)
+            is_lgt_ready = (asset_type in ['chr', u'chr'] and t_qc1 in valid_states and t_lrig in valid_states and t_lgt not in valid_states)
             
             if asset_type in ['env', u'env']:
+                # Env QC2: Tex sync done, but QC2 doesn't match Tex (or is stale)
                 is_qc2_ready = (t_qc1 == t_tex and t_tex in valid_states and t_qc2 != t_tex)
                 is_eligible = (t_qc1 == t_tex and t_tex in valid_states)
             elif asset_type in ['prp', u'prp']:
@@ -265,6 +277,7 @@ class QCDashboard(tk.Tk):
 
             if filter_mode == "qc1" and not is_qc1_ready: continue
             if filter_mode == "rig_wait" and not is_rig_wait: continue
+            if filter_mode == "lgt_ready" and not is_lgt_ready: continue
             if filter_mode == "qc2" and not is_qc2_ready: continue
 
             row_frame = tk.Frame(self.scrollable_frame, pady=2)
@@ -275,23 +288,35 @@ class QCDashboard(tk.Tk):
             chk = tk.Checkbutton(row_frame, variable=var, width=4)
             chk.pack(side=tk.LEFT, padx=1)
             
-            widths = [20, 6, 10, 10, 10, 10, 10, 10, 15, 10]
+            widths = [5, 6, 20, 10, 10, 10, 10, 10, 15, 10, 10]
             
             tk.Label(row_frame, text=asset_type, font=("Microsoft YaHei", 9, "bold"), fg="#17A2B8", relief="ridge", borderwidth=1, width=widths[1]).pack(side=tk.LEFT, padx=1)
-            tk.Label(row_frame, text=name, font=("Microsoft YaHei", 9), relief="ridge", borderwidth=1, width=widths[0]).pack(side=tk.LEFT, padx=1)
-            tk.Label(row_frame, text=t_tex, font=("Microsoft YaHei", 9), bg=self.get_color(t_tex), relief="ridge", borderwidth=1, width=widths[2]).pack(side=tk.LEFT, padx=1)
+            
+            # --- Dirty State Highlighting (Granular) ---
+            stale_type = item.get('is_stale')
+            name_bg = "#FFF9C4" if stale_type else "SystemButtonFace" # Light Yellow if Dirty
+            
+            icon = ""
+            if stale_type == "tex": icon = u"⚠️Tex "
+            elif stale_type == "rig": icon = u"⚠️Rig "
+            elif stale_type == "both": icon = u"⚠️T/R "
+            
+            name_text = icon + name
+            
+            tk.Label(row_frame, text=name_text, font=("Microsoft YaHei", 9), bg=name_bg, relief="ridge", borderwidth=1, width=widths[2]).pack(side=tk.LEFT, padx=1)
+            tk.Label(row_frame, text=t_tex, font=("Microsoft YaHei", 9), bg=self.get_color(t_tex), relief="ridge", borderwidth=1, width=widths[3]).pack(side=tk.LEFT, padx=1)
             
             # QC1
-            combo_qc1 = ttk.Combobox(row_frame, values=self.status_list, width=widths[3], font=("Microsoft YaHei", 9))
+            combo_qc1 = ttk.Combobox(row_frame, values=self.status_list, width=widths[4], font=("Microsoft YaHei", 9))
             combo_qc1.set(t_qc1)
             combo_qc1.bind('<<ComboboxSelected>>', lambda e, a=name, c="QC_step_1": self.register_change(a, c, e))
             combo_qc1.pack(side=tk.LEFT, padx=1)
             
             # rigMaster
-            tk.Label(row_frame, text=t_rig, font=("Microsoft YaHei", 9), bg=self.get_color(t_rig), relief="ridge", borderwidth=1, width=widths[4]).pack(side=tk.LEFT, padx=1)
+            tk.Label(row_frame, text=t_rig, font=("Microsoft YaHei", 9), bg=self.get_color(t_rig), relief="ridge", borderwidth=1, width=widths[5]).pack(side=tk.LEFT, padx=1)
             
             # libRig
-            combo_lrig = ttk.Combobox(row_frame, values=self.status_list, width=widths[5], font=("Microsoft YaHei", 9))
+            combo_lrig = ttk.Combobox(row_frame, values=self.status_list, width=widths[6], font=("Microsoft YaHei", 9))
             combo_lrig.set(t_lrig)
             combo_lrig.bind('<<ComboboxSelected>>', lambda e, a=name, c="libRig": self.register_change(a, c, e))
             combo_lrig.pack(side=tk.LEFT, padx=1)
@@ -331,11 +356,14 @@ class QCDashboard(tk.Tk):
         self.title("Executing...")
         self.update()
         try:
-            subprocess.call(["python", PIPELINE_SCRIPT, proj, ",".join(selected_assets)])
+            ret = subprocess.call(["python", PIPELINE_SCRIPT, proj, ",".join(selected_assets)])
+            if ret != 0:
+                messagebox.showerror("Error", "Pipeline execution failed. Check console.")
         except Exception as e:
             messagebox.showerror("Error", str(e))
         self.title("PPAS Lib QC Dashboard Pro V3.8")
         messagebox.showinfo("Done", "Pipeline Finished.")
+        self.sync_data()
 
 if __name__ == "__main__":
     app = QCDashboard()

@@ -43,8 +43,8 @@ def main():
         except Exception as e:
             print(f"  [FAIL] {mod_name}: {e}")
 
-    # Save the fixed file
-    fixed_path = bpy.data.filepath.replace(".blend", "_fixed.blend")
+    # Save the fixed file with an absolute path
+    fixed_path = os.path.abspath(bpy.data.filepath.replace(".blend", "_fixed.blend"))
     bpy.ops.wm.save_as_mainfile(filepath=fixed_path)
     
     # Output report
