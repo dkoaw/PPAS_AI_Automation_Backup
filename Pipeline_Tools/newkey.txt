@@ -1,0 +1,3 @@
+AIzaSyCkdCzcw9LnezfJ4Xk9pFISeHBY_UP9Reg
+
+setx GEMINI_API_KEY "AIzaSyCkdCzcw9LnezfJ4Xk9pFISeHBY_UP9Reg" /m
