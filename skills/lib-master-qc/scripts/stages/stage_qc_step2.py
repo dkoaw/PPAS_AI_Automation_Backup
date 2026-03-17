@@ -68,7 +68,7 @@ def run(res, project_name, blender_path, qc_script):
     env["QC_STEP_NAME"] = "lib_qc_step2"
     env["QC_OUT_PATH"] = str(qc_out)
     
-    subprocess.call([blender_path, "-b", fix_path, "-P", qc_script], env=env)
+    subprocess.call([blender_path, "-b", fix_path, "-y", "-P", qc_script], env=env)
     
     # 5. Result Extraction
     try:

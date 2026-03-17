@@ -2,23 +2,19 @@
 import os
 import subprocess
 import codecs
+import sys
+
+try:
+    unicode = unicode
+except NameError:
+    unicode = str
 
 def get_latest_file(directory, pattern):
     import glob
-    import re
     search_path = os.path.join(directory, pattern)
     files = glob.glob(search_path)
     if not files: return None
-    
-    def sort_key(f):
-        # Primary: Version number (_v001)
-        match = re.search(r'_v(\d+)', os.path.basename(f))
-        ver = int(match.group(1)) if match else 0
-        # Secondary: Modification time
-        mtime = os.path.getmtime(f)
-        return (ver, mtime)
-        
-    return max(files, key=sort_key)
+    return max(files, key=os.path.getmtime)
 
 def run(res, project_name, comparator_script, skills_dir, blender_path):
     """ASCII Version - libRig Fingerprint (Sync Physical File on PASS)"""
@@ -34,7 +30,7 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
         info_exporter = os.path.join(skills_dir, "blender-asset-info-exporter", "scripts", "export_info.py")
         env = os.environ.copy()
         env["EXTRACT_INFO_OUT"] = str(lib_inf)
-        subprocess.call([blender_path, "-b", lib_blend, "-P", info_exporter], env=env)
+        subprocess.call([blender_path, "-b", lib_blend, "-y", "-P", info_exporter], env=env)
     
     if not (rig_inf and os.path.exists(lib_inf)):
         res.rig_res = "FAIL"
@@ -82,4 +78,4 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
                     mf.write(unicode(json.dumps(meta, indent=4)))
             
             abc_exp = os.path.join(skills_dir, "blender-export-abc", "scripts", "export_abc.py")
-            subprocess.call([blender_path, "-b", lib_inf.replace(".json", ".blend"), "-P", abc_exp])
+            subprocess.call([blender_path, "-b", lib_inf.replace(".json", ".blend"), "-y", "-P", abc_exp])

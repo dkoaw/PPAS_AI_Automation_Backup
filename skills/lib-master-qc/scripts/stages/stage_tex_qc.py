@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import io
 import json
+import sys
 
 def get_latest_file(directory, pattern):
     import glob
@@ -11,6 +12,15 @@ def get_latest_file(directory, pattern):
     files = glob.glob(search_path)
     if not files: return None
     return max(files, key=os.path.getmtime)
+
+def pre_clean_stale_files(fixed_path):
+    if os.path.exists(fixed_path):
+        try: os.remove(fixed_path)
+        except: pass
+
+def post_clean_atomic_save(fixed_path):
+    if not os.path.exists(fixed_path):
+        pass # Handle in main logic
 
 def get_previous_version(directory, current_basename):
     import glob
@@ -68,22 +78,30 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     shutil.copy2(latest, dest_path)
     
     # --- 3. Run Fixer & Generate _fixed.blend ---
-    env = {str(k): str(v) for k, v in os.environ.items()}
-    subprocess.call([blender_path, "-b", dest_path, "-P", fixer_script], env=env)
     fixed_filename = os.path.basename(dest_path).replace(".blend", "_fixed.blend")
     fixed_path = os.path.join(qc_internal_dir, fixed_filename)
+    
+    # Pre-Clean
+    pre_clean_stale_files(fixed_path)
+    
+    env = {str(k): str(v) for k, v in os.environ.items()}
+    subprocess.call([blender_path, "-b", dest_path, "-y", "-P", fixer_script], env=env)
+    
+    # Post-Clean/Finalize
+    post_clean_atomic_save(fixed_path)
+    
     if not os.path.exists(fixed_path):
         print("  [texQC] ERROR: Fixer failed.")
         return
 
     # --- 4. Screenshots ---
     env['BLENDER_SHOT_OUT'] = str(qc_internal_dir); env['BLENDER_ASSET_NAME'] = str(res.name)
-    subprocess.call([blender_path, fixed_path, "--python", screenshot_script], env=env)
+    subprocess.call([blender_path, fixed_path, "-y", "--python", screenshot_script], env=env)
     
     # --- 5. Automated Atom QC (tex profile) ---
     qc_out = os.path.join(qc_internal_dir, "tex_qc_out.json")
     env["QC_STEP_NAME"] = "tex"; env["QC_OUT_PATH"] = str(qc_out)
-    subprocess.call([blender_path, "-b", fixed_path, "-P", qc_script], env=env)
+    subprocess.call([blender_path, "-b", fixed_path, "-y", "-P", qc_script], env=env)
 
     # --- 6. [NEW] Architectural Comparison (New vs Prev) ---
     comparison_pass = True
@@ -98,11 +116,11 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
         
         # Export Current
         env["EXTRACT_INFO_OUT"] = str(curr_info)
-        subprocess.call([blender_path, "-b", fixed_path, "-P", info_exporter], env=env)
+        subprocess.call([blender_path, "-b", fixed_path, "-y", "-P", info_exporter], env=env)
         
         # Export Previous
         env["EXTRACT_INFO_OUT"] = str(prev_info)
-        subprocess.call([blender_path, "-b", prev_v_path, "-P", info_exporter], env=env)
+        subprocess.call([blender_path, "-b", prev_v_path, "-y", "-P", info_exporter], env=env)
         
         # Compare
         if os.path.exists(curr_info) and os.path.exists(prev_info):

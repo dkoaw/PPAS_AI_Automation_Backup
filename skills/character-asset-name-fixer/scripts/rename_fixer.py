@@ -43,9 +43,40 @@ def main():
         except Exception as e:
             print(f"  [FAIL] {mod_name}: {e}")
 
-    # Save the fixed file with an absolute path
-    fixed_path = os.path.abspath(bpy.data.filepath.replace(".blend", "_fixed.blend"))
-    bpy.ops.wm.save_as_mainfile(filepath=fixed_path)
+    # Generate the _fixed absolute path securely
+    if bpy.data.filepath:
+        fixed_path = os.path.abspath(bpy.data.filepath.replace(".blend", "_fixed.blend"))
+    else:
+        fixed_path = os.path.abspath(filename.replace(".blend", "_fixed.blend"))
+    
+    # proactive cleanup of any stale backups to prevent 'Cannot change old file (@)' errors
+    cleanup_targets = [fixed_path, fixed_path + "@", fixed_path.replace(".blend", ".blend1")]
+    for t in cleanup_targets:
+        if os.path.exists(t):
+            try:
+                os.remove(t)
+            except Exception as e:
+                print(f"  [WARN] Failed to remove stale backup {t}: {e}")
+
+    # Save to a temporary unique path first to avoid ANY Blender file lock or backup logic
+    temp_path = fixed_path + ".tmp"
+    if os.path.exists(temp_path):
+        try: os.remove(temp_path)
+        except: pass
+        
+    os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+    
+    # Use save_as_mainfile to dump the current memory state to the temp path
+    # copy=True ensures the current session doesn't switch its 'home' to the temp file
+    bpy.ops.wm.save_as_mainfile(filepath=temp_path, copy=True, check_existing=False)
+    
+    # OS-level move is atomic and bypasses all Blender's @ backup logic
+    if os.path.exists(fixed_path):
+        try: os.remove(fixed_path)
+        except: pass
+    
+    import shutil
+    shutil.move(temp_path, fixed_path)
     
     # Output report
     out_json = os.environ.get("QC_FIX_OUT_PATH", "qc_fix_out.json")
