@@ -10,8 +10,9 @@ PIPELINE = [
 ]
 
 def main():
-    script_dir = os.path.dirname(__file__)
-    atoms_dir = os.path.join(script_dir, "atoms")
+    # Skills 目录动态查找 (兼容桌面、工程等多种运行路径)
+    skills_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    atoms_dir = os.path.join(skills_dir, "blender-fixer-atoms", "scripts")
     
     # 物理注入 atoms 路径，允许子模块直接 import core_utils
     if atoms_dir not in sys.path: 

@@ -4,24 +4,21 @@ import subprocess
 import codecs
 import sys
 
-try:
-    unicode = unicode
-except NameError:
-    unicode = str
+# --- Skill Path Injection ---
+SKILLS_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+FILE_OPS_PATH = os.path.join(SKILLS_DIR, "pipeline-file-ops", "scripts")
+if FILE_OPS_PATH not in sys.path:
+    sys.path.insert(0, FILE_OPS_PATH)
 
-def get_latest_file(directory, pattern):
-    import glob
-    search_path = os.path.join(directory, pattern)
-    files = glob.glob(search_path)
-    if not files: return None
-    return max(files, key=os.path.getmtime)
+import file_ops
+from file_ops import unicode  # For Python 2/3 compatibility
 
 def run(res, project_name, comparator_script, skills_dir, blender_path):
     """ASCII Version - libRig Fingerprint (Sync Physical File on PASS)"""
     print('[Stage: libRig] Comparing ' + res.name)
     
     rig_src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"rig\rigMaster")
-    rig_inf = get_latest_file(os.path.join(rig_src_dir, ".info"), "ysj_*.json")
+    rig_inf = file_ops.get_latest_file(os.path.join(rig_src_dir, ".info"), "ysj_*.json")
     
     # --- FORCE RENEW BLENDER JSON (Avoid stale algorithm data) ---
     lib_blend = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1", project_name + "_" + res.type + "_" + res.name + "_lib_libMaster_fixed.blend")
@@ -46,7 +43,7 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
             res.rig_res = "PASS"
             
             # --- SYNC RIG FILE ONLY ON PASS (100% Source Match) ---
-            rig_file = get_latest_file(rig_src_dir, "ysj_*.m[ab]")
+            rig_file = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
             if rig_file:
                 rig_dst_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "libRig")
                 if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)
@@ -67,7 +64,7 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
             # --- [KEY FIX] Write metadata even on FAIL ---
             # This prevents read_sheet.py from repeatedly flagging as 'stale'
             # (which would imply Rig was never processed, when it was, just failed)
-            rig_file_for_meta = get_latest_file(rig_src_dir, "ysj_*.m[ab]")
+            rig_file_for_meta = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
             if rig_file_for_meta:
                 rig_dst_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "libRig")
                 if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)

@@ -6,46 +6,13 @@ import io
 import json
 import sys
 
-def get_latest_file(directory, pattern):
-    import glob
-    search_path = os.path.join(directory, pattern)
-    files = glob.glob(search_path)
-    if not files: return None
-    return max(files, key=os.path.getmtime)
+# --- Skill Path Injection ---
+SKILLS_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+FILE_OPS_PATH = os.path.join(SKILLS_DIR, "pipeline-file-ops", "scripts")
+if FILE_OPS_PATH not in sys.path:
+    sys.path.insert(0, FILE_OPS_PATH)
 
-def pre_clean_stale_files(fixed_path):
-    if os.path.exists(fixed_path):
-        try: os.remove(fixed_path)
-        except: pass
-
-def post_clean_atomic_save(fixed_path):
-    if not os.path.exists(fixed_path):
-        pass # Handle in main logic
-
-def get_previous_version(directory, current_basename):
-    import glob
-    import re
-    # Extract version from current: e.g. v002
-    match = re.search(r'_v(\d+)\.blend', current_basename)
-    if not match: return None
-    curr_v = int(match.group(1))
-    
-    # Search for all versions
-    pattern = current_basename.replace("_v" + match.group(1), "_v*")
-    search_path = os.path.join(directory, pattern)
-    files = glob.glob(search_path)
-    
-    v_files = []
-    for f in files:
-        m = re.search(r'_v(\d+)\.blend', f)
-        if m:
-            v = int(m.group(1))
-            if v < curr_v:
-                v_files.append((v, f))
-    
-    if not v_files: return None
-    # Return the highest version that is less than current
-    return max(v_files, key=lambda x: x[0])[1]
+import file_ops
 
 def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_script, info_exporter, info_comparator):
     """
@@ -59,8 +26,8 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     print('[Stage: Production texQC] Checking ' + str(res.name))
     
     # --- 1. Source Detection ---
-    src_dir = os.path.join(r"X:\Project", project_name, r"work\assets", res.type, res.name, r"tex\texMaster")
-    latest = get_latest_file(src_dir, "ysj_" + str(res.type) + "_" + str(res.name) + "_tex_texMaster_v*.blend")
+    src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"tex\texMaster")
+    latest = file_ops.get_latest_file(src_dir, "ysj_" + res.type + "_" + res.name + "_tex_texMaster_v*.blend")
     if not latest:
         print("  [texQC] ERROR: No work file found in: " + src_dir)
         return
@@ -78,17 +45,15 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     shutil.copy2(latest, dest_path)
     
     # --- 3. Run Fixer & Generate _fixed.blend ---
-    fixed_filename = os.path.basename(dest_path).replace(".blend", "_fixed.blend")
-    fixed_path = os.path.join(qc_internal_dir, fixed_filename)
-    
-    # Pre-Clean
-    pre_clean_stale_files(fixed_path)
+    # --- [Pre-Clean] ---
+    fixed_path = dest_path.replace(".blend", "_fixed.blend")
+    file_ops.pre_clean_stale_files(fixed_path)
     
     env = {str(k): str(v) for k, v in os.environ.items()}
     subprocess.call([blender_path, "-b", dest_path, "-y", "-P", fixer_script], env=env)
     
     # Post-Clean/Finalize
-    post_clean_atomic_save(fixed_path)
+    file_ops.post_clean_atomic_save(fixed_path)
     
     if not os.path.exists(fixed_path):
         print("  [texQC] ERROR: Fixer failed.")
@@ -106,7 +71,8 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     # --- 6. [NEW] Architectural Comparison (New vs Prev) ---
     comparison_pass = True
     promo_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets", res.type, res.name, r"tex\texMaster")
-    prev_v_path = get_previous_version(promo_dir, os.path.basename(latest))
+    curr_v_name = os.path.basename(latest)
+    prev_v_path = file_ops.get_previous_version(src_dir, curr_v_name)
     
     if prev_v_path:
         print("  [texQC] Running architectural comparison vs: " + os.path.basename(prev_v_path))

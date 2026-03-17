@@ -93,6 +93,7 @@ def capture_outliner(target_area):
         if os.path.exists(save_path):
             try:
                 # 尝试解除只读并物理删除
+                import subprocess
                 subprocess.call(f'attrib -r "{save_path}"', shell=True)
                 os.remove(save_path)
             except:

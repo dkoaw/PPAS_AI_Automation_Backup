@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import shutil
 import subprocess
@@ -6,32 +5,20 @@ import io
 import json
 import sys
 
-try:
-    unicode = unicode
-except NameError:
-    unicode = str
+# --- Skill Path Injection ---
+SKILLS_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+FILE_OPS_PATH = os.path.join(SKILLS_DIR, "pipeline-file-ops", "scripts")
+if FILE_OPS_PATH not in sys.path:
+    sys.path.insert(0, FILE_OPS_PATH)
 
-def get_latest_file(directory, pattern):
-    import glob
-    search_path = os.path.join(directory, pattern)
-    files = glob.glob(search_path)
-    if not files: return None
-    return max(files, key=os.path.getmtime)
-
-def pre_clean_stale_files(fixed_path):
-    if os.path.exists(fixed_path):
-        try: os.remove(fixed_path)
-        except: pass
-
-def post_clean_atomic_save(fixed_path):
-    if not os.path.exists(fixed_path):
-        pass # Handle in main logic
+import file_ops
+from file_ops import unicode  # For Python 2/3 compatibility
 
 def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_script, info_exporter):
     """ASCII Version - Step 1 Process"""
     print('[Stage: Step 1] Processing ' + res.name)
     src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"tex\texMaster")
-    latest = get_latest_file(src_dir, "ysj_" + res.type + "_" + res.name + "_tex_texMaster_v*.blend")
+    latest = file_ops.get_latest_file(src_dir, "ysj_" + res.type + "_" + res.name + "_tex_texMaster_v*.blend")
     if not latest:
         res.step1_res = "FAIL"; res.step1_msg = "Source missing"; return
 
@@ -55,13 +42,13 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
 
     # --- [Pre-Clean] ---
     fixed_path = dest_path.replace(".blend", "_fixed.blend")
-    pre_clean_stale_files(fixed_path)
+    file_ops.pre_clean_stale_files(fixed_path)
 
     env = {str(k): str(v) for k, v in os.environ.items()}
     subprocess.call([blender_path, "-b", dest_path, "-y", "-P", fixer_script], env=env)
 
     # --- [Post-Clean/Finalize] ---
-    post_clean_atomic_save(fixed_path)
+    file_ops.post_clean_atomic_save(fixed_path)
     
     env['BLENDER_SHOT_OUT'] = str(s1_dir); env['BLENDER_ASSET_NAME'] = str(res.name)
     subprocess.call([blender_path, "-b", fixed_path, "-y", "--python", screenshot_script], env=env)
