@@ -45,19 +45,36 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     # If _fixed.blend is read-only OR if a stale _fixed.blend@ exists, the rename fails.
     # Solution: delete all stale variants before running fixer.
     fixed_path = dest_path.replace(".blend", "_fixed.blend")
-    for stale in [fixed_path, fixed_path + "1", fixed_path + "@"]:
-        if os.path.exists(stale):
-            try:
-                # Force remove read-only attribute first (Windows)
-                import stat
-                os.chmod(stale, stat.S_IWRITE)
-                os.remove(stale)
-                print("[Pre-Clean] Removed: " + os.path.basename(stale))
-            except Exception as e:
-                print("[Pre-Clean] WARNING: Could not remove {}: {}".format(stale, e))
+    import glob
+    stale_files = glob.glob(fixed_path + "*") # Matches .blend, .blend1, .blend@
+    for stale in stale_files:
+        try:
+            import stat
+            os.chmod(stale, stat.S_IWRITE)
+            os.remove(stale)
+            print("[Pre-Clean] Removed stale: " + os.path.basename(stale))
+        except Exception as e:
+            print("[Pre-Clean] WARNING: Could not remove {}: {}".format(stale, e))
 
     env = {str(k): str(v) for k, v in os.environ.items()}
     subprocess.call([blender_path, "-b", dest_path, "-P", fixer_script], env=env)
+
+    # --- [Post-Clean/Finalize] Handle Blender Atomic Save remnants ---
+    # Sometimes on network drives, Blender fails to rename .blend@ to .blend
+    blend_at = fixed_path + "@"
+    if os.path.exists(blend_at):
+        if not os.path.exists(fixed_path):
+            try:
+                os.rename(blend_at, fixed_path)
+                print("[Post-Clean] Successfully finalized: " + os.path.basename(fixed_path))
+            except Exception as e:
+                print("[Post-Clean] ERROR: Final rename failed: " + str(e))
+        else:
+            # Both exist? The @ one is a leftover.
+            try:
+                os.remove(blend_at)
+                print("[Post-Clean] Removed redundant: " + os.path.basename(blend_at))
+            except: pass
     
     env['BLENDER_SHOT_OUT'] = str(s1_dir); env['BLENDER_ASSET_NAME'] = str(res.name)
     subprocess.call([blender_path, "-b", fixed_path, "--python", screenshot_script], env=env)

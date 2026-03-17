@@ -10,3 +10,6 @@
 
 ## 当前管线地基
 已同步 34 个核心技能模块，涵盖从资产清洗到 LGT 渲染分层的所有环节。
+
+- **Bug Fix**: 解决了 DayuFS (X:) 盘上 Blender 原子写入残留 .blend@ 的回归问题。引入了 Finalize Rename (Post-Clean) 机制。
+
