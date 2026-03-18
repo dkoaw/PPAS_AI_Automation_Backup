@@ -54,14 +54,26 @@ def capture_outliner(target_area):
         asset_name = os.environ.get("BLENDER_ASSET_NAME", "asset")
         final_img = os.path.join(out_dir, f"{asset_name}_outliner.png")
         
-        # 全局扫描并清理历史遗留的临时截图文件
+        # 全局扫描并清理历史遗留的临时和避让截图文件
         import glob
+        import re
+        
         for old_temp in glob.glob(os.path.join(out_dir, "temp_outliner_*.png")):
             try:
                 os.remove(old_temp)
                 print(f"Cleaned up legacy temp file: {old_temp}")
             except:
                 pass
+                
+        # 清理旧的带时间戳的避让文件
+        for old_fallback in glob.glob(os.path.join(out_dir, f"{asset_name}_outliner_*.png")):
+            # 确保只清理带有时间戳的，不误删其它类似前缀的
+            if re.search(r'_outliner_\d+\.png$', old_fallback):
+                try:
+                    os.remove(old_fallback)
+                    print(f"Cleaned up old fallback screenshot: {old_fallback}")
+                except Exception as e:
+                    print(f"Could not clean up {old_fallback}: {e}")
 
         try:
             target_region = None

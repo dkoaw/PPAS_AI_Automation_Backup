@@ -51,10 +51,8 @@ def get_latest_filename(directory, pattern):
     if not files: return None
     
     def sort_key(f):
-        # Primary: Version number (_v001)
         match = re.search(r'_v(\d+)', os.path.basename(f))
         ver = int(match.group(1)) if match else 0
-        # Secondary: Modification time
         mtime = os.path.getmtime(f)
         return (ver, mtime)
         
@@ -62,7 +60,6 @@ def get_latest_filename(directory, pattern):
     return os.path.basename(latest_file)
 
 def is_stale(res, project_name, stage="QC_step_1"):
-    """Check if the physical source version/time is different from our synced version."""
     if stage == "QC_step_1":
         src_dir = os.path.join(r"X:\Project", project_name, r"pub\assets", res.type, res.name, r"tex\texMaster")
         pattern = "ysj_" + str(res.type) + "_" + str(res.name) + "_tex_texMaster_v*.blend"
@@ -72,18 +69,16 @@ def is_stale(res, project_name, stage="QC_step_1"):
     else:
         return False
 
-    # 1. Get Latest Source Filename and Mtime
     src_file = get_latest_filename(src_dir, pattern)
-    if not src_file: return False # No source, can't be stale
+    if not src_file: return False
     
     src_full_path = os.path.join(src_dir, src_file)
     src_mtime = os.path.getmtime(src_full_path)
     
-    # 2. Get Last Synced Info from Metadata
     s1_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, stage)
     meta_path = os.path.join(s1_dir, "sync_version.json")
     
-    if not os.path.exists(meta_path): return True # No metadata, force sync
+    if not os.path.exists(meta_path): return True 
     
     try:
         import io, json
@@ -91,8 +86,6 @@ def is_stale(res, project_name, stage="QC_step_1"):
             meta = json.load(f)
             last_file = meta.get("source_file")
             last_mtime = meta.get("source_mtime", 0)
-            
-            # 3. Dual Check: Version String OR Content Timestamp
             return (src_file != last_file) or (src_mtime > (last_mtime + 2))
     except:
         return True
@@ -115,7 +108,6 @@ def execute_pipeline(project_name, target_asset=None):
     results = []
     print("--- [Pipeline V2.0] Processing " + project_name + " ---")
     
-    # ????????????????
     target_list = target_asset.split(",") if target_asset else []
     
     for asset_data in raw_assets:
@@ -128,30 +120,25 @@ def execute_pipeline(project_name, target_asset=None):
         res = AssetResult(asset_data)
         results.append(res)
         
-        # --- [NEW] Freshness Detection & Cascading Logic ---
         res.is_dirty_tex = is_stale(res, project_name, "QC_step_1")
         res.is_dirty_lib = is_stale(res, project_name, "libRig")
-        
+
         if res.is_dirty_tex:
-            res.force_reset_all = True # Tex update -> Reset everything downstream
+            res.force_reset_all = True 
         elif res.is_dirty_lib:
-            res.force_reset_rig = True # Only LibMaster update -> Reset Rig
+            res.force_reset_rig = True 
             
         try:
-            # --- Phase: QC1 (Trigger if Status mismatch OR Tex is Dirty) ---
             should_run_qc1 = (res.tex_status in ['pub', 'tmpub']) and (res.qc1_existing != res.tex_status or res.is_dirty_tex)
-            
             if should_run_qc1:
                 qc_step1.run(res, project_name, BLENDER_PATH, FIXER_SCRIPT, QC_SCRIPT, SCREENSHOT_SCRIPT, INFO_EXPORTER)
             
-            # --- Phase: libRig (Trigger if Status mismatch OR Rig is Dirty OR Tex forced reset) ---
             should_run_rig = (res.rig_status in ['pub', 'tmpub']) and \
                              (res.librig_existing != res.rig_status or res.is_dirty_lib or res.force_reset_all)
             
             if ((res.step1_res == "PASS") or (res.qc1_existing == res.tex_status)) and should_run_rig:
                 rig_sync.run(res, project_name, COMPARATOR, SKILLS_DIR, BLENDER_PATH)
             
-            # --- Phase: QC2 (Full Check) ---
             qc_step2.run(res, project_name, BLENDER_PATH, QC_SCRIPT)
                 
         except Exception as e:
