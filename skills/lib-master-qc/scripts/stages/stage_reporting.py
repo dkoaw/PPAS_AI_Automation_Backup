@@ -21,6 +21,12 @@ def run(project_name, results, tmp_dir):
         for res in active_results:
             rpt.append(u'## Asset: ' + unicode(res.name))
             
+            s1_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_1")
+            qc1_report_path = os.path.join(s1_dir, res.name + "_QC_Report.md")
+            rig_diff_path = os.path.join(s1_dir, "lib_rig_diff.md")
+            s2_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "QC_step_2")
+            qc2_report_path = os.path.join(s2_dir, res.name + "_QC_Report.md")
+            
             # --- QC1 Status ---
             if res.step1_res == "PASS":
                 ups.append((res.name, "QC_step_1", res.tex_status))
@@ -33,6 +39,9 @@ def run(project_name, results, tmp_dir):
             else:
                 status = res.qc1_existing if res.qc1_existing else "wtg"
                 rpt.append(u'### QC1: ℹ️ SKIP (Already ' + unicode(status) + u')')
+            
+            if os.path.exists(qc1_report_path):
+                rpt.append(u'  * 📄 QC1 Report: [Click to Open](file:///' + qc1_report_path.replace("\\", "/") + u') | `' + qc1_report_path + u'`')
             
             # --- Rig Sync Status ---
             if res.rig_res == "PASS": 
@@ -49,6 +58,9 @@ def run(project_name, results, tmp_dir):
                         rpt.append(u'### libRig: ✅ Done (Already ' + unicode(res.librig_existing) + u')')
                     else:
                         rpt.append(u'### libRig: ⏳ WAIT (Waiting for Rig Release)')
+
+            if os.path.exists(rig_diff_path):
+                rpt.append(u'  * 📄 Rig Diff Report: [Click to Open](file:///' + rig_diff_path.replace("\\", "/") + u') | `' + rig_diff_path + u'`')
 
             # --- QC2 Status ---
             if res.qc2_res == "PASS":
@@ -81,6 +93,9 @@ def run(project_name, results, tmp_dir):
                         shutil.copy2(src_fixed, final_dest)
                         rpt.append(u'  * 📦 [Self-Heal] Promoted missing master file')
             
+            if os.path.exists(qc2_report_path):
+                rpt.append(u'  * 📄 QC2 Report: [Click to Open](file:///' + qc2_report_path.replace("\\", "/") + u') | `' + qc2_report_path + u'`')
+
             # --- Promotion Rule: prp ---
             if res.type in ['prp', u'prp'] and res.lib_master_status != 'apr':
                 qc1_done = (res.step1_res == "PASS" or res.qc1_existing == res.tex_status) and res.tex_status in ['pub', 'tmpub']

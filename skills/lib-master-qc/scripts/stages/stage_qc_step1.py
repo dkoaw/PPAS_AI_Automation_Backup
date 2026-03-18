@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import shutil
 import subprocess
@@ -60,6 +61,23 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
     try:
         with io.open(qc_out, 'r', encoding='utf-8') as f:
             data = json.load(f); failed = [i for i in data if i.get("status") == "FAIL"]
+            
+            # --- Generate Markdown Report ---
+            import time
+            md_path = os.path.join(s1_dir, res.name + "_QC_Report.md")
+            md_lines = [u"# 资产 {} QC_step_1 质检报告".format(res.name)]
+            md_lines.append(u"生成时间: " + unicode(time.strftime("%Y-%m-%d %H:%M:%S")))
+            md_lines.append(u"\n## 质检结果: " + (u"✅ PASS" if not failed else u"❌ FAIL"))
+            if failed:
+                md_lines.append(u"\n### ❌ 错误项详情:")
+                for item in failed:
+                    md_lines.append(u"#### " + unicode(item.get("check", "Unknown")))
+                    for issue in item.get("issues", []):
+                        md_lines.append(u"  - " + unicode(issue))
+            with io.open(md_path, 'w', encoding='utf-8') as mf:
+                mf.write(u"\n".join(md_lines))
+            # --------------------------------
+            
             if not failed:
                 res.step1_res = "PASS"
                 # --- NEW: Step 2 Sync Logic (100% Source Match) ---

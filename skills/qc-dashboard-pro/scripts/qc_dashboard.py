@@ -22,8 +22,8 @@ BLENDER_PATH = r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe"
 class QCDashboard(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
-        self.title("PPAS Lib QC Dashboard Pro V4.2 - Strict Standard Mode")
-        self.geometry("1600x850")
+        self.title("PPAS Lib QC Dashboard Pro V4.4 - Multi-Phase Filtering")
+        self.geometry("1250x850")
         
         self.colors = {
             'pub': '#D4EDDA', 'tmpub': '#D4EDDA', 
@@ -62,12 +62,13 @@ class QCDashboard(tk.Tk):
         ttk.Combobox(f_type, textvariable=self.type_var, values=["All", "chr", "prp", "env"], width=6, state="readonly", font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=5)
         self.type_var.trace('w', lambda *args: self.apply_filter())
         
-        f_lib = tk.Frame(filter_frame)
-        f_lib.pack(side=tk.LEFT, padx=15)
-        tk.Label(f_lib, text="lib Status:", font=("Microsoft YaHei", 9, "bold")).pack(side=tk.LEFT)
-        self.lib_status_var = tk.StringVar(value="All")
-        ttk.Combobox(f_lib, textvariable=self.lib_status_var, values=["All", "Passed", "Pending", "Not Passed"], width=12, state="readonly", font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=5)
-        self.lib_status_var.trace('w', lambda *args: self.apply_filter())
+        f_status = tk.Frame(filter_frame)
+        f_status.pack(side=tk.LEFT, padx=15)
+        tk.Label(f_status, text="Status Filter:", font=("Microsoft YaHei", 9, "bold")).pack(side=tk.LEFT)
+        self.status_filter_var = tk.StringVar(value="All")
+        status_options = ["All", "lib: Passed", "lib: Pending", "lib: Not Passed", "tex: Passed", "tex: Not Passed", "rig: Passed", "rig: Not Passed"]
+        ttk.Combobox(f_status, textvariable=self.status_filter_var, values=status_options, width=15, state="readonly", font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=5)
+        self.status_filter_var.trace('w', lambda *args: self.apply_filter())
 
         tk.Label(filter_frame, text=" | ", font=("Microsoft YaHei", 10)).pack(side=tk.LEFT)
         self.filter_var = tk.StringVar(value="all")
@@ -97,13 +98,17 @@ class QCDashboard(tk.Tk):
         bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         tk.Button(bottom_frame, text="1. Execute Selected Pipelines!", bg="#28A745", fg="white", font=("Microsoft YaHei", 12, "bold"), command=self.run_pipeline).pack(side=tk.LEFT, padx=50)
         tk.Button(bottom_frame, text="2. 🚀 Final Release & Publish to Production", bg="#DC3545", fg="white", font=("Microsoft YaHei", 12, "bold"), command=self.final_release).pack(side=tk.LEFT, padx=20)
+        
+        self.progress = ttk.Progressbar(bottom_frame, orient="horizontal", length=300, mode="indeterminate")
+        self.progress.pack(side=tk.RIGHT, padx=50)
 
     def get_color(self, status): 
         return self.colors.get(status.lower() if status else 'None', self.colors['None'])
 
     def sync_data(self):
         proj = self.proj_entry.get()
-        if not proj: return
+        if not proj: 
+            return
         self.title("Syncing from Flow...")
         self.update()
         try:
@@ -112,14 +117,15 @@ class QCDashboard(tk.Tk):
             if r1 == 0 and r2 == 0:
                 self.load_radar()
             else: 
-                messagebox.showerror("Error", "Sync Subprocess failed.")
+                messagebox.showerror("Error", "Sync failed.")
         except Exception as e: 
             messagebox.showerror("Error", str(e))
         finally: 
-            self.title("PPAS Lib QC Dashboard Pro V4.2")
+            self.title("PPAS Lib QC Dashboard Pro V4.4")
 
     def load_radar(self):
-        if not os.path.exists(JSON_PATH): return
+        if not os.path.exists(JSON_PATH): 
+            return
         try:
             with codecs.open(JSON_PATH, 'r', 'utf-8') as f: 
                 self.assets_data = json.load(f)
@@ -129,7 +135,8 @@ class QCDashboard(tk.Tk):
 
     def open_excel(self):
         proj = self.proj_entry.get()
-        if not proj: return
+        if not proj: 
+            return
         p = os.path.normpath(u"X:/AI_Automation/Project/{}/work/spreadsheet/{}_资产入库管理表.xlsx".format(proj, proj))
         if os.path.exists(p):
             subprocess.call('attrib -r "{}"'.format(p.encode('gbk')), shell=True)
@@ -147,16 +154,20 @@ class QCDashboard(tk.Tk):
         self.pending_updates[a][c] = v
 
     def apply_edits_to_excel(self):
-        if not self.pending_updates: return
+        if not self.pending_updates: 
+            return
         proj = self.proj_entry.get()
-        if not messagebox.askyesno("Confirm", "Apply edits?"): return
+        if not messagebox.askyesno("Confirm", "Apply edits?"): 
+            return
         try:
             updates = []
             for a, cols in self.pending_updates.items():
                 for c, v in cols.items():
                     cid = c
-                    if c == "Assignee": cid = u"\u5236\u4f5c\u4eba\u5458"
-                    elif c == "LGT": cid = u"\u706f\u5149\u6587\u4ef6\u5236\u4f5c"
+                    if c == "Assignee": 
+                        cid = u"\u5236\u4f5c\u4eba\u5458"
+                    elif c == "LGT": 
+                        cid = u"\u706f\u5149\u6587\u4ef6\u5236\u4f5c"
                     updates.append(u"{}|{}|{}".format(a, cid, v))
             payload = u";".join(updates).encode('utf-8')
             if subprocess.call(["python", BATCH_UPDATE_SCRIPT, proj, payload]) == 0:
@@ -181,11 +192,12 @@ class QCDashboard(tk.Tk):
         self.checkbox_vars.clear()
         f_mode = self.filter_var.get()
         t_filter = self.type_var.get()
-        l_filter = self.lib_status_var.get()
+        s_filter = self.status_filter_var.get()
         valid = ['pub', 'tmpub']
         for item in self.assets_data:
             atype = item.get(u'\u8d44\u4ea7\u7c7b\u578b') or item.get('Type', 'unknown')
-            if t_filter != "All" and atype != t_filter: continue
+            if t_filter != "All" and atype != t_filter: 
+                continue
             name = item.get(u'\u8d44\u4ea7\u540d\u79f0') or item.get('Name')
             t_tex = item.get('texMaster', '')
             t_qc1 = item.get('QC_step_1', '')
@@ -195,22 +207,36 @@ class QCDashboard(tk.Tk):
             t_qc2 = item.get('QC_step_2', '')
             t_libm = item.get('libMaster', '')
             
-            if l_filter == "Passed":
-                if t_libm not in valid: continue
-            elif l_filter == "Pending":
-                if t_libm != "apr": continue
-            elif l_filter == "Not Passed":
-                if t_libm in valid or t_libm == "apr": continue
+            if s_filter == "lib: Passed":
+                if t_libm not in valid: 
+                    continue
+            elif s_filter == "lib: Pending":
+                if t_libm != "apr": 
+                    continue
+            elif s_filter == "lib: Not Passed":
+                if t_libm in valid or t_libm == "apr": 
+                    continue
+            elif s_filter == "tex: Passed":
+                if t_tex not in valid: 
+                    continue
+            elif s_filter == "tex: Not Passed":
+                if t_tex in valid: 
+                    continue
+            elif s_filter == "rig: Passed":
+                if t_rig not in valid: 
+                    continue
+            elif s_filter == "rig: Not Passed":
+                if t_rig in valid: 
+                    continue
                 
             is_qc1_ready = (t_tex in valid and (t_qc1 != t_tex or item.get('is_stale') in ['tex', 'both']))
             is_rig_wait = (t_qc1 == t_tex and t_lrig != t_rig and t_rig in valid)
             is_lgt_ready = (atype in ['chr', u'chr'] and t_qc1 in valid and t_lrig in valid and t_lgt not in valid)
-            
             if atype in ['env', u'env']: 
                 is_qc2_ready = (t_qc1 == t_tex and t_tex in valid and t_qc2 != t_tex)
             elif atype in ['prp', u'prp']: 
                 is_qc2_ready = False
-            else: # chr
+            else: 
                 is_qc2_ready = (t_qc1 == t_tex and t_tex in valid and t_lrig == t_rig and t_rig in valid and t_lgt in valid and t_qc2 != t_tex)
             
             if f_mode == "qc1" and not is_qc1_ready: continue
@@ -242,20 +268,26 @@ class QCDashboard(tk.Tk):
             c_lrig.bind('<<ComboboxSelected>>', lambda e, a=name, c="libRig": self.register_change(a, c, e))
             c_lrig.pack(side=tk.LEFT, padx=1)
             
-            c_lgt = ttk.Combobox(row_frame, values=self.status_list, width=widths[7], font=("Microsoft YaHei", 9))
-            c_lgt.set(t_lgt)
-            c_lgt.bind('<<ComboboxSelected>>', lambda e, a=name, c="LGT": self.register_change(a, c, e))
-            c_lgt.pack(side=tk.LEFT, padx=1)
-            
-            e_maker = tk.Entry(row_frame, font=("Microsoft YaHei", 9), width=widths[8])
-            e_maker.insert(0, item.get(u'\u5236\u4f5c\u4eba\u5458', ''))
-            e_maker.bind('<FocusOut>', lambda e, a=name, c="Assignee": self.register_change(a, c, e))
-            e_maker.pack(side=tk.LEFT, padx=1)
+            is_chr = atype in ['chr', u'chr']
+            if is_chr:
+                c_lgt = ttk.Combobox(row_frame, values=self.status_list, width=widths[7], font=("Microsoft YaHei", 9))
+                c_lgt.set(t_lgt)
+                c_lgt.bind('<<ComboboxSelected>>', lambda e, a=name, c="LGT": self.register_change(a, c, e))
+                c_lgt.pack(side=tk.LEFT, padx=1)
+                
+                e_maker = tk.Entry(row_frame, font=("Microsoft YaHei", 9), width=widths[8])
+                e_maker.insert(0, item.get(u'\u5236\u4f5c\u4eba\u5458', ''))
+                e_maker.bind('<FocusOut>', lambda e, a=name, c="Assignee": self.register_change(a, c, e))
+                e_maker.pack(side=tk.LEFT, padx=1)
 
-            c_qc2 = ttk.Combobox(row_frame, values=self.status_list, width=widths[9], font=("Microsoft YaHei", 9))
-            c_qc2.set(t_qc2)
-            c_qc2.bind('<<ComboboxSelected>>', lambda e, a=name, c="QC_step_2": self.register_change(a, c, e))
-            c_qc2.pack(side=tk.LEFT, padx=1)
+                c_qc2 = ttk.Combobox(row_frame, values=self.status_list, width=widths[9], font=("Microsoft YaHei", 9))
+                c_qc2.set(t_qc2)
+                c_qc2.bind('<<ComboboxSelected>>', lambda e, a=name, c="QC_step_2": self.register_change(a, c, e))
+                c_qc2.pack(side=tk.LEFT, padx=1)
+            else:
+                tk.Label(row_frame, text="-", font=("Microsoft YaHei", 9), bg="#F8F9FA", fg="#DEE2E6", relief="ridge", borderwidth=1, width=widths[7] + 2).pack(side=tk.LEFT, padx=1)
+                tk.Label(row_frame, text="-", font=("Microsoft YaHei", 9), bg="#F8F9FA", fg="#DEE2E6", relief="ridge", borderwidth=1, width=widths[8] + 2).pack(side=tk.LEFT, padx=1)
+                tk.Label(row_frame, text="-", font=("Microsoft YaHei", 9), bg="#F8F9FA", fg="#DEE2E6", relief="ridge", borderwidth=1, width=widths[9] + 2).pack(side=tk.LEFT, padx=1)
             
             c_libm = ttk.Combobox(row_frame, values=self.status_list, width=widths[10], font=("Microsoft YaHei", 9), state="disabled")
             c_libm.set(t_libm)
@@ -266,44 +298,62 @@ class QCDashboard(tk.Tk):
         if not selected: return
         proj = self.proj_entry.get()
         if messagebox.askyesno("Execute", "Run pipeline?"):
-            self.title("Executing..."); self.update()
-            try:
-                subprocess.call(["python", PIPELINE_SCRIPT, proj, ",".join(selected)])
-                messagebox.showinfo("Done", "Pipeline Finished.")
-            finally: 
-                self.title("PPAS Lib QC Dashboard Pro V4.2")
-                self.sync_data()
+            self.title("Executing...")
+            self.progress.start(15)
+            import threading
+            def task():
+                try:
+                    subprocess.call(["python", PIPELINE_SCRIPT, proj, ",".join(selected)])
+                finally:
+                    self.after(0, self.on_pipeline_done)
+            threading.Thread(target=task).start()
+
+    def on_pipeline_done(self):
+        self.progress.stop()
+        self.title("PPAS Lib QC Dashboard Pro V4.4")
+        messagebox.showinfo("Done", "Pipeline Finished.")
+        self.sync_data()
 
     def final_release(self):
         selected = [name for name, var in self.checkbox_vars.items() if var.get()]
         if not selected: return
         proj = self.proj_entry.get()
-        if not messagebox.askyesno("Final Release", "Confirm Publish?"): return
-        self.title("Publishing..."); self.update()
-        res_sum = []; sg_ups = []; ex_ups = []
+        if not messagebox.askyesno("Final Release", "Confirm Publish?"): 
+            return
+        self.title("Publishing...")
+        self.update()
+        res_sum = []
+        sg_ups = []
+        ex_ups = []
         for name in selected:
             item = next((i for i in self.assets_data if (i.get(u'\u8d44\u4ea7\u540d\u79f0') or i.get('Name')) == name), None)
             if not item: continue
             atype = item.get(u'\u8d44\u4ea7\u7c7b\u578b') or item.get('Type')
-            t_tex = item.get('texMaster', ''); t_rig = item.get('rigMaster', '')
+            t_tex = item.get('texMaster', '')
+            t_rig = item.get('rigMaster', '')
             t_lgt = item.get(u'\u706f\u5149\u6587\u4ef6\u5236\u4f5c', '')
             preds = [t_tex, t_rig]
-            if atype in ['chr', u'chr']: preds.append(t_lgt)
+            if atype in ['chr', u'chr']: 
+                preds.append(t_lgt)
             target = "pub"
-            if "tmpub" in preds: target = "tmpub"
+            if "tmpub" in preds: 
+                target = "tmpub"
             if all(s not in ['pub', 'tmpub'] for s in preds): 
-                res_sum.append(u"{} - SKIP: No Preds".format(name)); continue
+                res_sum.append(u"{} - SKIP: No Preds".format(name))
+                continue
             try:
                 bw = os.path.join("X:/AI_Automation/Project", proj, "work/assets_lib", atype, name)
                 bp = os.path.join("X:/Project", proj, "pub/asset_lib", atype, name, "lib")
                 rs = os.path.join(bw, "libRig", "{}_{}_{}_lib_libRig.ma".format(proj, atype, name))
                 if not os.path.exists(rs): rs = rs.replace(".ma", ".mb")
                 if os.path.exists(rs):
-                    if not os.path.exists(os.path.join(bp, "libRig")): os.makedirs(os.path.join(bp, "libRig"))
+                    if not os.path.exists(os.path.join(bp, "libRig")): 
+                        os.makedirs(os.path.join(bp, "libRig"))
                     shutil.copy2(rs, os.path.join(bp, "libRig", os.path.basename(rs)))
                 ms = os.path.join(bw, "libMaster", "{}_{}_{}_lib_libMaster.blend".format(proj, atype, name))
                 if os.path.exists(ms):
-                    if not os.path.exists(os.path.join(bp, "libMaster")): os.makedirs(os.path.join(bp, "libMaster"))
+                    if not os.path.exists(os.path.join(bp, "libMaster")): 
+                        os.makedirs(os.path.join(bp, "libMaster"))
                     shutil.copy2(ms, os.path.join(bp, "libMaster", os.path.basename(ms)))
                 sg_ups.append({"asset_name": name, "task_name": "libRig", "status": t_rig})
                 sg_ups.append({"asset_name": name, "task_name": "libMaster", "status": target})
@@ -311,7 +361,8 @@ class QCDashboard(tk.Tk):
                 res_sum.append(u"{} - OK: {}".format(name, target))
             except Exception as e: 
                 res_sum.append(u"{} - ERR: {}".format(name, e))
-        if sg_ups: self.sync_to_flow(proj, sg_ups)
+        if sg_ups: 
+            self.sync_to_flow(proj, sg_ups)
         if ex_ups: 
             subprocess.call(["python", BATCH_UPDATE_SCRIPT, proj, u";".join(ex_ups).encode('utf-8')])
         self.sync_data()
