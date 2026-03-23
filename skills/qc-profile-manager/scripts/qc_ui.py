@@ -40,10 +40,12 @@ ALL_ATOMS = {
     "group_validity": u"特殊组(hiddenMesh等)合法性",
     "facial_nodes": u"ysj项目表情贴图材质规范",
     "texture_consistency": u"贴图物理路径一致性检查(S/X盘)",
-    "rig_fingerprint": u"Rig环节绑定指纹(顶点数)比对"
+    "rig_fix_orig_shape": u"[Rig专属] 清理冗余 Orig Shape 节点",
+    "rig_unused_skin": u"[Rig专属] 清理未使用蒙皮影响物",
+    "maya_namespace": u"[Maya专属] 清除所有的 Namespace"
 }
 
-STEPS = ["tex", "lib_qc_step1", "lib_qc_step2"]
+STEPS = ["uv", "tex", "rig", "lib_qc_step1", "lib_qc_step2"]
 
 class QCProfileManager(tk.Tk):
     def __init__(self):
@@ -91,6 +93,23 @@ class QCProfileManager(tk.Tk):
             self.vars[step] = {}
             row, col = 0, 0
             for atom_key, atom_name in ALL_ATOMS.items():
+                # --- Visibility Filter Logic ---
+                # 1. Maya/Rig exclusive atoms should ONLY show in "rig" tab
+                if u"[Rig专属]" in atom_name and step != "rig":
+                    continue
+                if u"[Maya专属]" in atom_name and step != "rig":
+                    continue
+                
+                # 2. Blender exclusive atoms should NEVER show in "rig" tab (Maya environment)
+                blender_exclusives = [
+                    "unused_meshes", "ngons", "subdivision", 
+                    "unused_images", "texture_consistency", "facial_nodes",
+                    "uv_negative", "uv_cross_udim", "uv_overlap", "uv_inverted", 
+                    "uv_layer_naming", "uv_layer_count", "data_sync"
+                ]
+                if step == "rig" and atom_key in blender_exclusives:
+                    continue
+                    
                 var = tk.BooleanVar()
                 self.vars[step][atom_key] = var
                 

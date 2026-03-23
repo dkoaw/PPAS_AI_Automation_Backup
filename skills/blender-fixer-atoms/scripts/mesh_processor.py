@@ -28,10 +28,30 @@ def run(asset_name, report):
             # 2. Logic based on parent
             if obj.parent in group_empties:
                 # Basic name sync from parent
-                parent_part = utils.parse_group_part(obj.parent.name, asset_name)     
-                obj.name = asset_name + "_" + parent_part + digits
-            elif hiddenmesh_grp and obj.parent == hiddenmesh_grp:
-                # For hidden mesh, keep its existing identity keywords if possible
+                parent_part = utils.parse_group_part(obj.parent.name, asset_name)
+                expected_prefix = asset_name + "_" + parent_part
+
+                # Anti-pollution check (Idempotency)
+                remainder = obj.name[len(expected_prefix):]
+                if obj.name.startswith(expected_prefix) and (not remainder or remainder.isdigit()):
+                    pass # Do not touch the name
+                else:
+                    base_new_name = expected_prefix
+                    if digits:
+                        candidate_name = base_new_name + digits
+                    else:
+                        candidate_name = base_new_name + "1"
+
+                    # Smart Collision Resolver (avoid .001)
+                    if candidate_name in bpy.data.objects and bpy.data.objects[candidate_name] != obj:
+                        idx = 1
+                        while (base_new_name + str(idx)) in bpy.data.objects and bpy.data.objects[base_new_name + str(idx)] != obj:
+                            idx += 1
+                        obj.name = base_new_name + str(idx)
+                    else:
+                        obj.name = candidate_name
+
+            elif hiddenmesh_grp and obj.parent == hiddenmesh_grp:                # For hidden mesh, keep its existing identity keywords if possible
                 if not obj.name.startswith(asset_name + "_"):
                     obj.name = asset_name + "_" + obj.name
             elif obj.parent not in special_groups:

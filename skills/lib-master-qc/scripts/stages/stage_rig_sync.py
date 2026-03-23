@@ -38,12 +38,16 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
     
     with codecs.open(out_md, 'r', 'utf-8') as f:
         content = f.read().upper()
-        # 兼容英文和中文的成功标志
-        if 'MATCH PERFECT' in content or 'SUCCESS' in content or 'IDENTICAL' in content or u'一！致！' in content or u'完全一致' in content:
+        # 优先检查失败关键字
+        if u'存在差异' in content or u'不一致' in content or 'MISMATCH' in content or 'DIFFERENCE' in content or u'缺少' in content:
+            res.rig_res = "FAIL"
+        elif 'MATCH PERFECT' in content or 'SUCCESS' in content or 'IDENTICAL' in content or u'一！致！' in content or u'完全一致' in content:
             res.rig_res = "PASS"
-            
-            # --- SYNC RIG FILE ONLY ON PASS (100% Source Match) ---
-            rig_file = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
+        else:
+            res.rig_res = "FAIL"
+
+        if res.rig_res == "PASS":
+            # --- SYNC RIG FILE ONLY ON PASS (100% Source Match) ---            rig_file = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
             if rig_file:
                 rig_dst_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "libRig")
                 if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)

@@ -50,9 +50,23 @@ def run(res, project_name, blender_path, fixer_script, qc_script, screenshot_scr
 
     # --- [Post-Clean/Finalize] ---
     file_ops.post_clean_atomic_save(fixed_path)
-    
+
+    # Ensure clean slate for screenshot to avoid fallback explosion
+    img_path = os.path.join(s1_dir, res.name + "_outliner.png")
+    if os.path.exists(img_path):
+        subprocess.call(['attrib', '-r', img_path.encode('gbk')])
+        try: os.remove(img_path)
+        except: pass
+
+    # Clean old fallbacks
+    for f in os.listdir(s1_dir):
+        if f.startswith(res.name + "_outliner_") and f.endswith(".png"):
+            try: os.remove(os.path.join(s1_dir, f))
+            except: pass
+
     env['BLENDER_SHOT_OUT'] = str(s1_dir); env['BLENDER_ASSET_NAME'] = str(res.name)
-    subprocess.call([blender_path, "-b", fixed_path, "-y", "--python", screenshot_script], env=env)
+    # WARNING: capture_shot.py CANNOT be run with -b (background) because it requires a UI context to take a screenshot.
+    subprocess.call([blender_path, fixed_path, "-y", "--python", screenshot_script], env=env)    
     
     qc_out = os.path.join(s1_dir, "qc_out.json")
     env["QC_STEP_NAME"] = "lib_qc_step1"; env["QC_OUT_PATH"] = str(qc_out)

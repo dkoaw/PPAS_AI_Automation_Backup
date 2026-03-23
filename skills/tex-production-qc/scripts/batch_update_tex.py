@@ -7,6 +7,11 @@ def batch_update_tex(spreadsheet_path, payload):
     Isolated batch updater for Tex Management Spreadsheet.
     payload: "AssetName|ColumnName|Value;..."
     """
+    if isinstance(spreadsheet_path, str):
+        spreadsheet_path = spreadsheet_path.decode(sys.getfilesystemencoding())
+    if isinstance(payload, str):
+        payload = payload.decode(sys.getfilesystemencoding())
+
     if not os.path.exists(spreadsheet_path):
         print("Error: Spreadsheet not found: " + spreadsheet_path)
         return
@@ -23,7 +28,7 @@ def batch_update_tex(spreadsheet_path, payload):
         
         # Build mapping
         name_col = headers.index(u"资产名称")
-        updates = payload.decode('gbk').split(';')
+        updates = payload.split(';')
         
         for up in updates:
             parts = up.split('|')
