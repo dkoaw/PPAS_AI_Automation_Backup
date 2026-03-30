@@ -4,7 +4,7 @@ import os, sys, json, io
 # --- ShotGrid Environment Setup ---
 def get_sg():
     # Use the established pipeline config path
-    config_path = r"P:\pipeline\common_lib\db_bridge\api\config\sg_data.json"
+    config_path = r"X:\AI_Automation\.gemini\env_core\sg_data.json"
     if not os.path.exists(config_path):
         # Fallback for local testing if needed
         return None
@@ -44,6 +44,7 @@ def update_sg_statuses(project_name, updates):
         asset_name = up["asset_name"]
         task_name = up["task_name"]
         raw_status = up["status"]
+        comment = up.get("comment", "")
         
         # Translate to SG valid status
         new_status = status_map.get(raw_status, raw_status)
@@ -59,6 +60,20 @@ def update_sg_statuses(project_name, updates):
         if task:
             sg.update("Task", task["id"], {"sg_status_list": new_status})
             print("Successfully updated {} - {} to {}".format(asset_name, task_name, new_status))
+            
+            # Create a Note linked to the task if comment exists
+            if comment:
+                try:
+                    note_data = {
+                        "project": proj,
+                        "content": comment,
+                        "note_links": [task],
+                        "tasks": [task]
+                    }
+                    sg.create("Note", note_data)
+                    print("+++ Attached Comment Note to Task +++")
+                except Exception as e:
+                    print("Warning: Failed to create Note: " + str(e))
         else:
             print("Warning: Task '{}' not found for asset '{}'".format(task_name, asset_name))
     

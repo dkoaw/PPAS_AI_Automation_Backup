@@ -56,6 +56,11 @@ def run(project_name, run_type, results, spreadsheet_path):
                 rpt.append(u'\n' + res.comparison_warning + u'\n')
                 
             rpt.append(u'---')
+            
+            # Pop open the QC folder in Windows Explorer
+            try:
+                subprocess.call('explorer "{}"'.format(qc_dir.replace("/", "\\")), shell=True)
+            except: pass
 
     # Batch Writeback to the CHOSEN spreadsheet
     if ups:
@@ -74,4 +79,4 @@ def run(project_name, run_type, results, spreadsheet_path):
         f.write(u"\n".join(rpt))
     
     print("Report saved: " + report_path)
-    subprocess.call('start notepad++ "' + report_path + '"', shell=True)
+    subprocess.call('start "" "X:\\AI_Automation\\.gemini\\env_core\\Notepad_Portable\\notepad++.exe" "' + report_path + '"', shell=True)

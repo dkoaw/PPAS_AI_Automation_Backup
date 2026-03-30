@@ -47,4 +47,4 @@ def run(project_name, results, spreadsheet_path):
     with codecs.open(p, 'w', 'utf-8') as f: f.write(u"\n".join(rpt))
     
     # Auto Open
-    subprocess.call('start notepad++ "{}"'.format(p), shell=True)
+    subprocess.call('start "" "X:\\AI_Automation\\.gemini\\env_core\\Notepad_Portable\\notepad++.exe" "{}"'.format(p), shell=True)

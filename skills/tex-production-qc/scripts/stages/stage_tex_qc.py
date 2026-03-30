@@ -99,8 +99,7 @@ def run(res, project_name, run_type, blender_path, fixer_script, qc_script, scre
                 if os.path.exists(comp_report):
                     with io.open(comp_report, 'r', encoding='utf-8') as f:
                         comp_txt = f.read()
-                        if u"存在差异" in comp_txt or u"宸紓" in comp_txt:
-                            comparison_warning = comp_txt
+                        comparison_warning = comp_txt
         else:
             comparison_warning = u"\n\n⚠️ **警告**: 未能在上游找到对应的 Rig 绑定指纹 (JSON) 文件，无法进行拓扑比对！"
             

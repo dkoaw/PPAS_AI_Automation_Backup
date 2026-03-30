@@ -27,8 +27,9 @@ def run_sg_query(project_name):
         "fields": ["entity", "content", "sg_status_list", "entity.Asset.sg_asset_type"]
     }
     
-    tmp_in = "X:/AI_Automation/.gemini/tmp/rig_sg_query_in.json"
-    tmp_out = "X:/AI_Automation/.gemini/tmp/rig_sg_query_out.json"
+    ts = str(int(time.time() * 1000))
+    tmp_in = "X:/AI_Automation/.gemini/tmp/rig_sg_query_in_{}.json".format(ts)
+    tmp_out = "X:/AI_Automation/.gemini/tmp/rig_sg_query_out_{}.json".format(ts)
     
     with io.open(tmp_in, 'w', encoding='utf-8') as f:
         f.write(unicode(json.dumps(query_in, ensure_ascii=False)))

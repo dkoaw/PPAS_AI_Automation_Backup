@@ -4,6 +4,7 @@ import time
 import codecs
 import subprocess
 import glob
+import sys
 
 def run(project_name, results, tmp_dir):
     """ASCII Version - Aggregate Reports (Strict 1:1 Logic)"""
@@ -32,7 +33,7 @@ def run(project_name, results, tmp_dir):
                 ups.append((res.name, "QC_step_1", res.tex_status))
                 rpt.append(u'### QC1: ✅ PASS')
             elif res.step1_res == "FAIL":
-                ups.append((res.name, "QC_step_1", "rtk"))
+                ups.append((res.name, "QC_step_1", "rep"))
                 rpt.append(u'### QC1: ❌ FAIL')
                 for msg in res.qc1_fail_summary:
                     rpt.append(u'  * ' + unicode(msg))
@@ -48,7 +49,7 @@ def run(project_name, results, tmp_dir):
                 ups.append((res.name, "libRig", res.rig_status))
                 rpt.append(u'### libRig: ✅ PASS')
             elif res.rig_res == "FAIL": 
-                ups.append((res.name, "libRig", "rtk"))
+                ups.append((res.name, "libRig", "rep"))
                 rpt.append(u'### libRig: ⚠️ FAIL (ABC Exported)')
             else:
                 if res.type in ['env', u'env']:
@@ -135,10 +136,12 @@ def run(project_name, results, tmp_dir):
     if ups:
         bs = os.path.join(tmp_dir, "batch_update_cells.py")
         payload = u";".join([unicode(a) + u"|" + unicode(c) + u"|" + unicode(v) for a, c, v in ups])
-        subprocess.call(["python", bs, str(project_name), payload.encode('utf-8')])
+        # Use encoded payload for Py2, string for Py3
+        cmd_payload = payload.encode('utf-8') if sys.version_info[0] < 3 else payload
+        subprocess.call(["python", bs, str(project_name), cmd_payload])
 
     report_file = "lib_qc_final_" + time.strftime("%Y_%m_%d_%H%M%S") + ".md"
     p = os.path.join(r"X:\AI_Automation\Project", project_name, "report", report_file)
     if not os.path.exists(os.path.dirname(p)): os.makedirs(os.path.dirname(p))
     with codecs.open(p, 'w', 'utf-8') as f: f.write(u"\n".join(rpt))
-    subprocess.call('start notepad++ "' + p + '"', shell=True)
+    subprocess.call('start "" "X:\\AI_Automation\\.gemini\\env_core\\Notepad_Portable\\notepad++.exe" "' + p + '"', shell=True)

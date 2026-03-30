@@ -4,7 +4,7 @@ import os
 import traceback
 
 def get_sg():
-    with open(r"P:\pipeline\common_lib\db_bridge\api\config\sg_data.json", 'r') as r:
+    with open(r"X:\AI_Automation\.gemini\env_core\sg_data.json", 'r') as r:
         api_dict = json.load(r)
     import shotgun_api3
     return shotgun_api3.Shotgun(**api_dict)
@@ -27,7 +27,7 @@ def execute_query(sg, query_config):
             
         elif action == "find_assets":
             proj = get_project(project_name)
-            if not proj: return {"status": "error", "message": f"Project {project_name} not found"}
+            if not proj: return {"status": "error", "message": "Project {} not found".format(project_name)}
             
             filters = [["project", "is", proj]]
             asset_type = query_config.get("asset_type") # e.g. 'chr', 'prp'
@@ -40,7 +40,7 @@ def execute_query(sg, query_config):
             
         elif action == "find_tasks":
             proj = get_project(project_name)
-            if not proj: return {"status": "error", "message": f"Project {project_name} not found"}
+            if not proj: return {"status": "error", "message": "Project {} not found".format(project_name)}
             
             entity_type = query_config.get("entity_type") # "Asset" or "Shot"
             entity_name = query_config.get("entity_name")
@@ -49,7 +49,7 @@ def execute_query(sg, query_config):
             entity_filters = [["project", "is", proj], ["code", "is", entity_name]]
             entity = sg.find_one(entity_type, entity_filters, ["id", "code"])
             
-            if not entity: return {"status": "error", "message": f"{entity_type} {entity_name} not found in project {project_name}"}
+            if not entity: return {"status": "error", "message": "{} {} not found in project {}".format(entity_type, entity_name, project_name)}
             
             task_filters = [["entity", "is", entity]]
             
@@ -75,7 +75,7 @@ def execute_query(sg, query_config):
             return {"status": "success", "data": data}
             
         else:
-            return {"status": "error", "message": f"Unknown action: {action}"}
+            return {"status": "error", "message": "Unknown action: {}".format(action)}
             
     except Exception as e:
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}

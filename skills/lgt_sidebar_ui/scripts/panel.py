@@ -33,6 +33,7 @@ class PPAS_PT_Lighting_Main(bpy.types.Panel):
 
         # --- 5. 材质与分层屏蔽 (Materials & Mute) ---
         l.separator(); b5 = l.box(); b5.label(text="材质与屏蔽 (Mute)", icon='NODE_MATERIAL')
+        b5.operator("ppas.setup_sss_layer", text="一键创建 SSS 渲染层", icon='SHADING_RENDERED')
         b5.operator("ppas.adjust_normal_strength", text="批量调整法线强度", icon='MOD_NORMALEDIT')
         b5.operator("ppas.mute_emission_on_layer", text="当前层屏蔽自发光", icon='LIGHT_DATA')
 

@@ -45,7 +45,7 @@ ALL_ATOMS = {
     "maya_namespace": u"[Maya专属] 清除所有的 Namespace"
 }
 
-STEPS = ["uv", "tex", "rig", "lib_qc_step1", "lib_qc_step2"]
+STEPS = ["mod", "uv", "tex", "rig", "lib_qc_step1", "lib_qc_step2"]
 
 class QCProfileManager(tk.Tk):
     def __init__(self):

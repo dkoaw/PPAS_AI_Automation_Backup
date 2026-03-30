@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-import os, json, csv, sys, io, subprocess, codecs
+import os, json, csv, sys, io, subprocess, codecs, time
+
+if sys.version_info[0] >= 3:
+    unicode = str
 
 # Import Excel libraries
 try:
@@ -21,8 +24,9 @@ def run_sg_query(project_name):
         ],
         "fields": ["entity", "content", "sg_status_list", "entity.Asset.sg_asset_type"]
     }
-    tmp_in = "X:/AI_Automation/.gemini/tmp/sg_batch_query_in.json"
-    tmp_out = "X:/AI_Automation/.gemini/tmp/sg_batch_query_out.json"
+    ts = str(int(time.time() * 1000))
+    tmp_in = "X:/AI_Automation/.gemini/tmp/sg_batch_query_in_{}.json".format(ts)
+    tmp_out = "X:/AI_Automation/.gemini/tmp/sg_batch_query_out_{}.json".format(ts)
     with io.open(tmp_in, 'w', encoding='utf-8') as f: f.write(unicode(json.dumps(query_in, ensure_ascii=False)))
     sg_script = "X:/AI_Automation/.gemini/skills/sg-data-reader/scripts/sg_query.py"
     env = {str(k): str(v) for k, v in os.environ.items()}

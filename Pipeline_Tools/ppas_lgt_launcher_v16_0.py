@@ -32,6 +32,7 @@ SKILLS_TO_LOAD = {
     "bat": "lgt_render_bat_generator/scripts/logic.py",    # 13. 渲染 BAT：生成单层渲染批处理及内部隔离管理器
     "qt": "lgt_qt_file_manager/scripts/logic.py",          # 14. 贴图管理：唤起外部独立开发的 Qt V4 版本文件整理器
     "layer_mgr": "lgt_render_layer_manager/scripts/logic.py", # 15. 层管理器：渲染层与对象显隐专属 Qt 独立面板
+    "sss_setup": "lgt_sss_layer_setup/scripts/setup_operator.py", # 15.5 SSS装配：一键创建分层并注入渲染拦截器
     "backup": "pipeline_cloud_backup/scripts/logic.py",    # 16. 云端备份：同步全量资产至 GitHub (New)
     "ui": "lgt_sidebar_ui/scripts/panel.py"                # 17. 总控面板：UI 界面排版与 Operator 挂载
 }

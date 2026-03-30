@@ -47,7 +47,8 @@ def run(res, project_name, comparator_script, skills_dir, blender_path):
             res.rig_res = "FAIL"
 
         if res.rig_res == "PASS":
-            # --- SYNC RIG FILE ONLY ON PASS (100% Source Match) ---            rig_file = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
+            # --- SYNC RIG FILE ONLY ON PASS (100% Source Match) ---
+            rig_file = file_ops.get_latest_file(rig_src_dir, "ysj_*.m[ab]")
             if rig_file:
                 rig_dst_dir = os.path.join(r"X:\AI_Automation\Project", project_name, r"work\assets_lib", res.type, res.name, "libRig")
                 if not os.path.exists(rig_dst_dir): os.makedirs(rig_dst_dir)
