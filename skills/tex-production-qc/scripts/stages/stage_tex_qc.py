@@ -117,6 +117,7 @@ def run(res, project_name, run_type, blender_path, fixer_script, qc_script, scre
                     data = []
                 
                 failed = [i for i in data if i.get("status") == "FAIL"]
+                warnings = [i for i in data if i.get("status") == "WARNING"]
 
                 # Markdown Report
                 import time
@@ -124,9 +125,17 @@ def run(res, project_name, run_type, blender_path, fixer_script, qc_script, scre
                 md_lines = [u"# 资产 {} {} 质检报告".format(res.name, run_type.upper())]
                 md_lines.append(u"生成时间: " + unicode(time.strftime("%Y-%m-%d %H:%M:%S")))      
                 md_lines.append(u"\n## 质检结果: " + (u"✅ PASS" if not failed else u"❌ FAIL"))   
+                
                 if failed:
-                    md_lines.append(u"\n### ❌ 错误项详情:")
+                    md_lines.append(u"\n### ❌ 错误项详情 (阻断流程):")
                     for item in failed:
+                        md_lines.append(u"#### " + unicode(item.get("check", "Unknown")))
+                        for issue in item.get("issues", []):
+                            md_lines.append(u"  - " + unicode(issue))
+
+                if warnings:
+                    md_lines.append(u"\n### ⚠️ 提醒项详情 (不影响质检结果):")
+                    for item in warnings:
                         md_lines.append(u"#### " + unicode(item.get("check", "Unknown")))
                         for issue in item.get("issues", []):
                             md_lines.append(u"  - " + unicode(issue))
