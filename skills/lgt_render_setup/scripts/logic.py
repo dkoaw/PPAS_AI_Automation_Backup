@@ -94,20 +94,20 @@ def setup_cycles_settings(scene):
     # 4. 降噪细节 (Denoising)
     try:
         # Viewport Denoise
-        c.use_preview_denoising = True
-        if hasattr(c, "preview_denoiser"): c.preview_denoiser = 'AUTOMATIC'
-        if hasattr(c, "preview_denoising_input_passes"): c.preview_denoising_input_passes = 'RGB'
-        if hasattr(c, "preview_denoising_prefilter"): c.preview_denoising_prefilter = 'FAST'
-        if hasattr(c, "preview_denoising_quality"): c.preview_denoising_quality = 'BALANCED'
-        if hasattr(c, "preview_denoising_use_gpu"): c.preview_denoising_use_gpu = True
+        scene.cycles.use_preview_denoising = True
+        if hasattr(scene.cycles, "preview_denoiser"): scene.cycles.preview_denoiser = 'AUTOMATIC'
+        if hasattr(scene.cycles, "preview_denoising_input_passes"): scene.cycles.preview_denoising_input_passes = 'RGB'
+        if hasattr(scene.cycles, "preview_denoising_prefilter"): scene.cycles.preview_denoising_prefilter = 'FAST'
+        if hasattr(scene.cycles, "preview_denoising_quality"): scene.cycles.preview_denoising_quality = 'BALANCED'
+        if hasattr(scene.cycles, "preview_denoising_use_gpu"): scene.cycles.preview_denoising_use_gpu = True
         
         # Render Denoise
-        c.use_denoising = True
-        if hasattr(c, "denoiser"): c.denoiser = 'OPENIMAGEDENOISE'
-        if hasattr(c, "denoising_input_passes"): c.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
-        if hasattr(c, "denoising_prefilter"): c.denoising_prefilter = 'ACCURATE'
-        if hasattr(c, "denoising_quality"): c.denoising_quality = 'HIGH'
-        if hasattr(c, "denoising_use_gpu"): c.denoising_use_gpu = True
+        scene.cycles.use_denoising = False
+        if hasattr(scene.cycles, "denoiser"): scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+        if hasattr(scene.cycles, "denoising_input_passes"): scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        if hasattr(scene.cycles, "denoising_prefilter"): scene.cycles.denoising_prefilter = 'ACCURATE'
+        if hasattr(scene.cycles, "denoising_quality"): scene.cycles.denoising_quality = 'HIGH'
+        if hasattr(scene.cycles, "denoising_use_gpu"): scene.cycles.denoising_use_gpu = True
     except Exception as e: print(f"Cycles Denoise Error: {e}")
 
 def setup_eevee_settings(scene):
@@ -193,14 +193,50 @@ def setup_eevee_settings(scene):
         scene.view_settings.gamma = 1.0
     except Exception as ex: print(f"EEVEE Color Mgt Error: {ex}")
 
+def setup_light_collections(scene):
+    """创建并构建特定的灯光 Collection 层级，防重复创建"""
+    # 1. 确保顶级 Collection 'All_Light' 存在
+    target_root_name = "All_Light"
+    if target_root_name not in bpy.data.collections:
+        all_light_coll = bpy.data.collections.new(target_root_name)
+    else:
+        all_light_coll = bpy.data.collections[target_root_name]
+        
+    # 链接到当期 Scene Collection
+    if target_root_name not in scene.collection.children.keys():
+        scene.collection.children.link(all_light_coll)
+
+    # 2. 确保子 Collection
+    sub_names = ["TreD_Light", "TwoD_Light", "Fog_Light", "Sss_Light"]
+    for name in sub_names:
+        if name not in bpy.data.collections:
+            sub_coll = bpy.data.collections.new(name)
+        else:
+            sub_coll = bpy.data.collections[name]
+            
+        # 链接到 All_Light
+        if name not in all_light_coll.children.keys():
+            all_light_coll.children.link(sub_coll)
+            # 如果它原本在场景根目录，解绑它以保持层级干净
+            if name in scene.collection.children.keys():
+                scene.collection.children.unlink(sub_coll)
+
 class PPAS_OT_SetAllGlobal(bpy.types.Operator):
     bl_idname = "ppas.set_all_global"
     bl_label = "设置渲染参数"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
+        # 0. 防呆拦截：极简白名单策略，全管线只有名为 "Scene" 的原始工程场景才被允许设为主层
+        if context.scene.name != "Scene":
+            self.report({'ERROR'}, f"管线拦截防呆：非法的母场景来源 [{context.scene.name}]！根据严格管线规范，只有名为 'Scene' 的节点有权升格为主层。")
+            return {'CANCELLED'}
+                
         # 核心修正：必须物理切换引擎，否则 5.0.1 会吞掉属性赋值
         original_engine = context.scene.render.engine
+        
+        # 0. 确立该场景为管线法定的终极“母场景”
+        context.scene["ppas_is_master"] = True
         
         # 1. 切换到 EEVEE 并设置
         context.scene.render.engine = 'BLENDER_EEVEE'
@@ -216,7 +252,71 @@ class PPAS_OT_SetAllGlobal(bpy.types.Operator):
         # 4. 设置环境光
         setup_world_hdr_nodes(context.scene)
         
-        self.report({'INFO'}, "渲染参数及 World 节点网同步完成 (强干预版)")
+        # 5. 设置全局灯光层级 (All_Light -> 子组)
+        setup_light_collections(context.scene)
+        
+        # --- 终极强制刷新防止 5.0.1 吞数据 ---
+        # --- 终极强制刷新防止 5.0.1 吞数据 ---
+        try:
+            if hasattr(context.scene.cycles, "preview_denoising_use_gpu"): context.scene.cycles.preview_denoising_use_gpu = True
+            if hasattr(context.scene.cycles, "denoising_use_gpu"): context.scene.cycles.denoising_use_gpu = True
+            
+            # 【核心双重锁死】：在引擎切换造成的系统级乱序结束后，再次用纯 Python 物理写入一次关闭命令
+            context.scene.cycles.use_denoising = False
+            
+            bpy.context.view_layer.update()
+        except Exception as e:
+            print(f"Update Override Error: {e}")
+        
+        self.report({'INFO'}, "参数同步完成，当前场景已被定为『绝对母场景』(Master)")
         return {'FINISHED'}
 
-classes = (PPAS_OT_SetAllGlobal,) # 关键：必须显式导出 classes 元组
+class PPAS_OT_SyncMasterParams(bpy.types.Operator):
+    """(母场景控制) 以初始化过的母场景为准，将所有渲染参数（分辨率、引擎、采样等）强制统一下发给工程内的所有子层。跳过图层输出路径等专属配置。"""
+    bl_idname = "ppas.sync_master_params"
+    bl_label = "⏬ 以母场景参数全域同步"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def copy_rna_props(self, src, dest, skip_keys):
+        for k in src.rna_type.properties.keys():
+            if k in skip_keys or k == 'rna_type': continue
+            try: setattr(dest, k, getattr(src, k))
+            except AttributeError: pass
+
+    def execute(self, context):
+        # 优先寻找带有印记的母场景，若无则使用当前所处场景
+        master = next((s for s in bpy.data.scenes if s.get("ppas_is_master")), context.scene)
+        
+        skip_render_props = {'filepath', 'views', 'layers', 'image_settings'}
+        
+        count = 0
+        for scene in bpy.data.scenes:
+            if scene == master: continue
+            
+            # ====== 核心免疫护城河级联触发区 ======
+            # 根据每个子场景自己的属性宣告，抓取它的绝对特免防同步名单！
+            raw_immune_keys = scene.get("ppas_protected_keys")
+            immune_set = set(list(raw_immune_keys)) if raw_immune_keys else set()
+            
+            # 1. Render Basics
+            render_skip = set(skip_render_props).union(immune_set)
+            self.copy_rna_props(master.render, scene.render, render_skip)
+            
+            # 2. Cycles & EEVEE
+            if hasattr(scene, 'cycles') and hasattr(master, 'cycles'):
+                self.copy_rna_props(master.cycles, scene.cycles, immune_set)
+            if hasattr(scene, 'eevee') and hasattr(master, 'eevee'):
+                self.copy_rna_props(master.eevee, scene.eevee, immune_set)
+                
+            # 3. Color Management
+            if hasattr(scene, 'display_settings') and hasattr(master, 'display_settings'):
+                self.copy_rna_props(master.display_settings, scene.display_settings, immune_set)
+            if hasattr(scene, 'view_settings') and hasattr(master, 'view_settings'):
+                self.copy_rna_props(master.view_settings, scene.view_settings, immune_set)
+            
+            count += 1
+            
+        self.report({'INFO'}, f"管线纪律执行：成功使用母场景[{master.name}]覆盖了其余 {count} 个子场景的渲染参数！")
+        return {'FINISHED'}
+
+classes = (PPAS_OT_SetAllGlobal, PPAS_OT_SyncMasterParams) # 关键：必须显式导出 classes 元组

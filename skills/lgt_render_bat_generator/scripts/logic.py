@@ -63,6 +63,10 @@ if "--" in argv:
         ]
         
         for scene in bpy.data.scenes:
+            # 护城河排异：绝对不允许母场景 (Master) 被编入渲染阵列，防止渲染出无效的无光底图
+            if scene.get("ppas_is_master") is not None or " [母]" in scene.name:
+                continue
+                
             lines.append(f'echo --- Scene: {scene.name} ---')
             for vl in scene.view_layers:
                 # 使用 --python-text 确保在后台模式下立即执行注入的逻辑

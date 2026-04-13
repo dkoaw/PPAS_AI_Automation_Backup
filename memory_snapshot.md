@@ -1,7 +1,8 @@
-# 🧠 PPAS AI 记忆快照
-备份时间: 2026-03-31 21:14:13
+﻿# PPAS AI 记忆快照
+备份时间: 2026-04-13 13:19:23
 
 ## 核心原则记录
 - UI开发准则: Append-Only (只增不删)
 - 软件标准: Maya 2025 (USD Export), Blender 5.0.1 (LGT/Comp)
 - 项目基准: 以 v15.9 架构为核心地基
+- UE5 渲染管线: USD StageActor Live读取 + MRG节点渲染系统

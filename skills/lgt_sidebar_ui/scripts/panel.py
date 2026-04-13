@@ -62,8 +62,12 @@ class PPAS_PT_Lighting_Main(bpy.types.Panel):
 
         # --- 7. 渲染与输出 (Render & Output) ---
         l.separator(); b7 = l.box(); b7.label(text="渲染与输出 (Render & Output)", icon='RENDER_RESULT')
+        
+        if hasattr(bpy.ops.ppas, "sync_master_params"):
+            b7.operator("ppas.sync_master_params", text="⏬ 当前参数全域强制同步 (跟随始祖)", icon='FILE_REFRESH')
+            
         if hasattr(bpy.ops.ppas, "set_all_global"):
-            b7.operator("ppas.set_all_global", text="一键设置渲染质量参数", icon='TOOL_SETTINGS')
+            b7.operator("ppas.set_all_global", text="全局设置", icon='TOOL_SETTINGS')
         if hasattr(bpy.ops.ppas, "set_resolution_fps"):
             b7.operator("ppas.set_resolution_fps", text="设置分辨率与帧率", icon='OUTPUT')
         if hasattr(bpy.ops.ppas, "setup_output_nodes"):
